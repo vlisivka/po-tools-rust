@@ -408,6 +408,58 @@ fn command_print_with_context(messages: &Vec<PoMessage>) -> Result<()> {
   Ok(())
 }
 
+fn command_print_with_word(keyword: &str, messages: &Vec<PoMessage>) -> Result<()> {
+  use PoMessage::*;
+  for message in messages {
+    match message {
+      Regular{msgid, ..} | RegularWithContext{msgid, ..} => {
+        let mut msgid = msgid.clone();
+        msgid.make_ascii_lowercase();
+        if msgid.contains(keyword) {
+          println!("{message}");
+        }
+      }
+      Plural{msgid, msgid_plural, ..} | PluralWithContext{msgid, msgid_plural, ..}=> {
+        let mut msgid = msgid.clone();
+        msgid.make_ascii_lowercase();
+        let mut msgid_plural = msgid_plural.clone();
+        msgid_plural.make_ascii_lowercase();
+        if msgid.contains(keyword) || msgid_plural.contains(keyword) {
+          println!("{message}");
+        }
+      }
+      _ => {},
+    }
+  }
+  Ok(())
+}
+
+fn command_print_with_wordstr(keyword: &str, messages: &Vec<PoMessage>) -> Result<()> {
+  use PoMessage::*;
+  for message in messages {
+    match message {
+      Regular{msgstr, ..} | RegularWithContext{msgstr, ..} => {
+        let mut msgstr = msgstr.clone();
+        msgstr.make_ascii_lowercase();
+        if msgstr.contains(keyword) {
+          println!("{message}");
+        }
+      }
+      Plural{msgstr, ..} | PluralWithContext{msgstr, ..}=> {
+        for msgstr in msgstr {
+          let mut msgstr = msgstr.clone();
+          msgstr.make_ascii_lowercase();
+          if msgstr.contains(keyword) {
+            println!("{message}");
+          }
+        }
+      }
+      _ => {},
+    }
+  }
+  Ok(())
+}
+
 fn command_compare_files_and_print(skip_same: bool, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
 
   for msgs in messages.iter_mut() {
@@ -799,8 +851,19 @@ bug - помилка
       command_print_with_context(&messages)?;
     }
 
+    [ "with-word", keyword, file ] => {
+      let parser = Parser{ number_of_plural_cases };
+      let messages = parser.parse_messages_from_file(file)?;
+      command_print_with_word(keyword, &messages)?;
+    }
+
+    [ "with-wordstr", keyword, file ] => {
+      let parser = Parser{ number_of_plural_cases };
+      let messages = parser.parse_messages_from_file(file)?;
+      command_print_with_wordstr(keyword, &messages)?;
+    }
+
     // TODO: multiline/singleline
-    // TODO: Find a word
     // TODO: Without words
 
     [ "help", .. ] | [] => help(),
@@ -833,6 +896,8 @@ COMMANDS:
   * regular FILE - print regular PO messages, not ones with context or plural messages.
   * plural FILE - print plural messages only.
   * with-context FILE - print messages with msgctxt field.
+  * with-word WORD FILE - print messages with given word in msgid.
+  * with-wordstr WORD FILE - print messages with given word in msgstr.
 
   * sort FILE - sort messages in lexical order.
   * parse - parse file and dump (for debugging)
