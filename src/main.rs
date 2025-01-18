@@ -460,6 +460,32 @@ fn command_print_with_wordstr(keyword: &str, messages: &Vec<PoMessage>) -> Resul
   Ok(())
 }
 
+fn command_print_with_unequal_linebreaks(messages: &Vec<PoMessage>) -> Result<()> {
+  use PoMessage::*;
+  for message in messages {
+    match message {
+      Regular{msgid, msgstr, ..} | RegularWithContext{msgid, msgstr, ..} => {
+        let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
+        let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
+        if  msgid_nl != msgstr_nl {
+          println!("{message}");
+        }
+      }
+      Plural{msgid, msgstr, ..} | PluralWithContext{msgid, msgstr, ..}=> {
+        let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
+        for msgstr in msgstr {
+          let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
+          if  msgid_nl != msgstr_nl {
+            println!("{message}");
+          }
+        }
+      }
+      _ => {},
+    }
+  }
+  Ok(())
+}
+
 fn command_compare_files_and_print(skip_same: bool, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
 
   for msgs in messages.iter_mut() {
@@ -863,6 +889,12 @@ bug - помилка
       command_print_with_wordstr(keyword, &messages)?;
     }
 
+    [ "with-unequal-linebreaks", file ] => {
+      let parser = Parser{ number_of_plural_cases };
+      let messages = parser.parse_messages_from_file(file)?;
+      command_print_with_unequal_linebreaks(&messages)?;
+    }
+
     // TODO: multiline/singleline
     // TODO: Without words
 
@@ -898,6 +930,7 @@ COMMANDS:
   * with-context FILE - print messages with msgctxt field.
   * with-word WORD FILE - print messages with given word in msgid.
   * with-wordstr WORD FILE - print messages with given word in msgstr.
+  * with-unequal-linebreaks - print messages where msgstr doesn't contain same number of linebreaks as msgid.
 
   * sort FILE - sort messages in lexical order.
   * parse - parse file and dump (for debugging)
