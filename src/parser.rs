@@ -49,16 +49,22 @@ pub fn escape_string(s: &String) -> String {
   let mut result = String::with_capacity(s.len());
   let mut prepend_quotes = false;
 
-  let multiline = true; // TODO: make it global
+  let multiline = true; // TODO: make it global variable, to allow customization from command line
+  let len = s.chars().count();
 
   for (i, c) in s.chars().enumerate() {
     match c {
       '\r' => result.push_str("\\r"),
-      '\n' if i+1 == s.len() => result.push_str("\\n"),
+
+      // If newline character is last character in the string, then don't make string multiline.
+      '\n' if i+1 == len => result.push_str("\\n"),
+
+      // If string contains newline character, then make it multiline, when requested
       '\n' if multiline => {
         prepend_quotes = true;
         result.push_str("\\n\"\n\"");
       },
+
       '\n' => result.push_str("\\n"),
       '\t' => result.push_str("\\t"),
       '"'  => result.push_str("\\\""),
@@ -536,6 +542,17 @@ msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"
 ";
+    let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+    let parser = Parser { number_of_plural_cases: None };
+    let msg = parser.parse_message(&chars[..]).expect("Message must be parsed correctly.");
+    assert_eq!(orig, format!("{msg}"));
+  }
+
+  #[test]
+  fn simple_singleline_message_with_endline() {
+    let orig = r#"msgid "Only one of -s, -g, -r, or -l allowed\n"
+msgstr "Дозволено лише одне з -s, -g, -r або -l\n"
+"#;
     let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
     let parser = Parser { number_of_plural_cases: None };
     let msg = parser.parse_message(&chars[..]).expect("Message must be parsed correctly.");
