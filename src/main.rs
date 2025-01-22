@@ -629,6 +629,7 @@ bug - помилка
 "#;
   let mut language = "Ukrainian";
   let mut model = "ollama:phi4:14b-q8_0";
+  let mut role = "translate-po";
   let aichat_command = "aichat";
 
   // Options
@@ -712,6 +713,11 @@ bug - помилка
             tail = &tail[2..];
           }
 
+          [ "-r", role_name, ..] | [ "--role", role_name, ..] => {
+            role = role_name;
+            tail = &tail[2..];
+          }
+
           [ "-l", lang_name, ..] | [ "--lang", lang_name, ..] | [ "--language", lang_name, ..] => {
             language = lang_name;
             tail = &tail[2..];
@@ -734,7 +740,7 @@ bug - помилка
         [ file ] => {
           let parser = Parser{ number_of_plural_cases };
           let messages = parser.parse_messages_from_file(file)?;
-          command_translate_and_print(aichat_command, &["-m", model], language, number_of_plural_cases, dictionary, &messages)?;
+          command_translate_and_print(aichat_command, &[ "-r", role, "-m", model ], language, number_of_plural_cases, dictionary, &messages)?;
         }
         _ => bail!("Expected one argument only: name of the file to parse and dump. Actual list of arguments: {:?}", tail),
       }
@@ -763,6 +769,11 @@ bug - помилка
             tail = &tail[2..];
           }
 
+          [ "-r", role_name, ..] | [ "--role", role_name, ..] => {
+            role = role_name;
+            tail = &tail[2..];
+          }
+
           [ "-l", lang_name, ..] | [ "--lang", lang_name, ..] | [ "--language", lang_name, ..] => {
             language = lang_name;
             tail = &tail[2..];
@@ -787,7 +798,7 @@ bug - помилка
         let file_messages = parser.parse_messages_from_file(file)?;
         messages.push(file_messages);
       }
-      command_review_files_and_print(aichat_command, &[ "-m", model], language, number_of_plural_cases, dictionary, messages)?;
+      command_review_files_and_print(aichat_command, &[ "-r", role, "-m", model ], language, number_of_plural_cases, dictionary, messages)?;
     }
 
     [ "sort", file ] => {
@@ -959,6 +970,9 @@ OPTIONS:
 
   -l | --language LANG  Language to use. Default value: "Ukrainian".
   -m | --model MODEL    AI model to use with aichat. Default value: "ollama:phi4:14b-q8_0".
+                        Additional models: "aya-expanse:32b-q3_K_S", "codestral:22b-v0.1-q5_K_S".
+  -r | --role ROLE      AI role to use with aichat.  Default value: "translate-po".
+                        For better reproducibility, set temperature and top_p to 0, to remove randomness.
 
 "#);
 }
@@ -975,6 +989,9 @@ OPTIONS:
 
   -l | --language LANG  Language to use. Default value: "Ukrainian".
   -m | --model MODEL    AI model to use with aichat. Default value: "ollama:phi4:14b-q8_0".
+                        Additional models: "aya-expanse:32b-q3_K_S", "codestral:22b-v0.1-q5_K_S".
+  -r | --role ROLE      AI role to use with aichat.  Default value: "translate-po".
+                        For better reproducibility, set temperature and top_p to 0, to remove randomness.
 
 "#);
 }
