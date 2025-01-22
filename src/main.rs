@@ -194,7 +194,7 @@ fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
   }
 }
 
-fn command_translate_and_print(model: &str, language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, messages: &Vec<PoMessage>) -> Result<()> {
+fn command_translate_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, messages: &Vec<PoMessage>) -> Result<()> {
 
   let mut prev_message = PoMessage::Regular { msgid: "--help\tPrint this help message.".to_string(), msgstr: "--help\tНадрукувати цю довідку.".to_string() };
   let parser = Parser{ number_of_plural_cases };
@@ -226,7 +226,7 @@ IMPORTANT: Start with "<message> msgid ".
 "#);
 
         // Translate
-        let new_message_text = pipe_to_command("aichat", &["-r", "tr-po-uk-aya", "-m", model], &message_text)?;
+        let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
         //eprintln!("@@@@\n{new_message_text}\n@@@@\n");
 
         // Extract text between <message> and </message>, if they are present
@@ -242,17 +242,17 @@ IMPORTANT: Start with "<message> msgid ".
         match parser.parse_message(&new_message_chars[..]) {
           Ok(new_message) =>  {
             if message.to_key() == new_message.to_key() {
-              println!("# Translated message:\n{new_message}");
-              prev_message = new_message;
+              println!("# Translated message:\n#, fuzzy\n{new_message}");
+              //prev_message = new_message;
             } else {
               eprintln!("# ERROR: Wrong msgid field when trying to translate:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====");
-              println!("# UNTranslated message (wrong id after translation):\n{message}");
+              println!("# UNTranslated message (wrong id after translation):\n#, fuzzy\n{message}");
             }
           },
 
           Err(e) => {
             eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====", e);
-            println!("#UNTranslated message (cannot parse translation):\n{message}");
+            println!("#UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
           },
         }
       },
@@ -284,7 +284,7 @@ msgstr[2] "%s нових латок,"
 "#);
 
         // Translate
-        let new_message_text = pipe_to_command("aichat", &["-m", model], &message_text)?;
+        let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
         //eprintln!("@@@@\n{new_message_text}\n@@@@\n");
 
         let parser = Parser{ number_of_plural_cases: Some(number_of_plural_cases) };
@@ -302,17 +302,17 @@ msgstr[2] "%s нових латок,"
         match parser.parse_message(&new_message_chars[..]) {
           Ok(new_message) =>  {
             if message.to_key() == new_message.to_key() {
-              println!("# Translated message:\n{new_message}");
+              println!("# Translated message:\n#, fuzzy\n{new_message}");
               prev_message = new_message;
             } else {
               eprintln!("# ERROR: Wrong msgid field when trying to transalte:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====");
-              println!("# UNTranslated message (wrong id after translation):\n{message}");
+              println!("# UNTranslated message (wrong id after translation):\n#, fuzzy\n{message}");
             }
           },
 
           Err(e) => {
             eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====", e);
-            println!("#UNTranslated message (cannot parse translation):\n{message}");
+            println!("#UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
           },
         }
       }
@@ -525,7 +525,7 @@ fn command_compare_files_and_print(skip_same: bool, mut messages: Vec<Vec<PoMess
   Ok(())
 }
 
-fn command_review_files_and_print(model: &str, language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
+fn command_review_files_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
 
   let parser = Parser{ number_of_plural_cases };
 
@@ -588,8 +588,8 @@ IMPORTANT: Start with "<message> msgid ".
     //eprintln!("{message_text}");
 
     // Translate
-    let new_message_text = pipe_to_command("aichat", &["-r", "tr-po-uk-aya", "-m", model], &message_text)?;
-    eprintln!("# Review:\n{new_message_text}\n");
+    let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
+    //eprintln!("# Review:\n{new_message_text}\n");
 
     // Extract text between <message> and </message>, if they are present
     let new_message_text_slice = if let (Some(start), Some(end)) = (new_message_text.find("<message>"), new_message_text.find("</message>")) {
@@ -604,16 +604,16 @@ IMPORTANT: Start with "<message> msgid ".
     match parser.parse_message(&new_message_chars[..]) {
       Ok(new_message) =>  {
         if message.to_key() == new_message.to_key() {
-          println!("# Reviewed message:\n{new_message}");
+          println!("# Reviewed message:\n#, fuzzy\n{new_message}");
         } else {
           eprintln!("# ERROR: Wrong msgid field when trying to review:\n{message}\n# Review:\n=====\n{new_message_text_slice}\n=====");
-          println!("# UNReviewed message (wrong id after review):\n{message}");
+          println!("# UNReviewed message (wrong id after review):\n#, fuzzy\n{message}");
         }
       },
 
       Err(e) => {
         eprintln!("# ERROR: Cannot parse review of message: {:#}:\n{message}\n# Review:\n=====\n{new_message_text_slice}\n=====", e);
-        println!("#UNReviewed message (cannot parse review):\n{message}");
+        println!("#UNReviewed message (cannot parse review):\n#, fuzzy\n{message}");
       },
     }
   }
@@ -627,7 +627,9 @@ fn main() -> Result<()> {
 patch - латка
 bug - помилка
 "#;
-
+  let mut language = "Ukrainian";
+  let mut model = "ollama:phi4:14b-q8_0";
+  let aichat_command = "aichat";
 
   // Options
   let mut number_of_plural_cases: Option<usize> = None;
@@ -702,8 +704,6 @@ bug - помилка
 
     [ "translate", .. ] => {
       // Parse "translate" command options
-      let mut model = "ollama:phi4:14b-q8_0";
-      let mut language = "Ukrainian";
       let mut tail = &tail[1..];
       loop {
         match tail[..] {
@@ -734,7 +734,7 @@ bug - помилка
         [ file ] => {
           let parser = Parser{ number_of_plural_cases };
           let messages = parser.parse_messages_from_file(file)?;
-          command_translate_and_print(model, language, number_of_plural_cases, dictionary, &messages)?;
+          command_translate_and_print(aichat_command, &["-m", model], language, number_of_plural_cases, dictionary, &messages)?;
         }
         _ => bail!("Expected one argument only: name of the file to parse and dump. Actual list of arguments: {:?}", tail),
       }
@@ -787,7 +787,7 @@ bug - помилка
         let file_messages = parser.parse_messages_from_file(file)?;
         messages.push(file_messages);
       }
-      command_review_files_and_print(model, language, number_of_plural_cases, dictionary, messages)?;
+      command_review_files_and_print(aichat_command, &[ "-m", model], language, number_of_plural_cases, dictionary, messages)?;
     }
 
     [ "sort", file ] => {
@@ -949,22 +949,32 @@ Parse a PO file and dump to standard output for debugging.
 
 fn help_translate() {
   println!(r#"
-Usage: po-tools [OPTIONS] [--] translate [-m MODEL|-l LANG] FILE
+Usage: po-tools [GLOBAL_OPTIONS] translate [-m MODEL|-l LANG] [--] FILE
 
 WORK IN PROGRESS.
 
 Translate messages in PO file using AI tools (aichat, ollama).
+
+OPTIONS:
+
+  -l | --language LANG  Language to use. Default value: "Ukrainian".
+  -m | --model MODEL    AI model to use with aichat. Default value: "ollama:phi4:14b-q8_0".
 
 "#);
 }
 
 fn help_review() {
   println!(r#"
-Usage: po-tools [OPTIONS] [--] review [-m MODEL|-l LANG] FILE1 [FILE...]
+Usage: po-tools [GLOBAL_OPTIONS] review [-m MODEL|-l LANG] [--] FILE1 [FILE2...]
 
 WORK IN PROGRESS.
 
-Review multiple translations of same messages using AI tools (aichat, ollama).
+Review multiple different translations of same messages and select the bese one among them using AI tools (aichat, ollama).
+
+OPTIONS:
+
+  -l | --language LANG  Language to use. Default value: "Ukrainian".
+  -m | --model MODEL    AI model to use with aichat. Default value: "ollama:phi4:14b-q8_0".
 
 "#);
 }
