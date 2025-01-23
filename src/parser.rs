@@ -34,13 +34,35 @@ pub enum PoMessage {
 }
 
 impl PoMessage {
-  pub fn to_key(&self) -> PoMessage {
+  pub fn to_key(&self) -> Self {
     match self {
       Self::Header{..} => self.clone(),
       Self::Regular{msgid, ..} => Self::Regular{msgid: msgid.clone(), msgstr: "".to_string()},
       Self::RegularWithContext{msgctxt, msgid, ..} => Self::RegularWithContext{msgctxt: msgctxt.clone(), msgid: msgid.clone(), msgstr: "".to_string()},
       Self::Plural{msgid, msgid_plural, ..} => Self::Plural{msgid: msgid.clone(), msgid_plural: msgid_plural.clone(), msgstr: Vec::new()},
       Self::PluralWithContext{msgctxt, msgid, msgid_plural, ..} => Self::PluralWithContext{msgctxt: msgctxt.clone(), msgid:msgid.clone(), msgid_plural: msgid_plural.clone(), msgstr: Vec::new()},
+    }
+  }
+
+  pub fn with_key(&self, key: &Self) -> Self {
+    use PoMessage::*;
+    match (key, self) {
+      (Regular{msgid, ..}, Regular{msgstr,..})  => Regular{msgid: msgid.clone(), msgstr: msgstr.clone()},
+      (RegularWithContext{msgctxt, msgid, ..}, RegularWithContext{msgstr, ..}) => RegularWithContext{msgctxt: msgctxt.clone(), msgid: msgid.clone(), msgstr: msgstr.clone()},
+
+      (Plural{msgid, msgid_plural, ..}, Plural{msgstr, ..}) => Plural{msgid: msgid.clone(), msgid_plural: msgid_plural.clone(), msgstr: msgstr.clone()},
+      (PluralWithContext{msgctxt, msgid, msgid_plural, ..}, PluralWithContext{msgstr, ..}) => PluralWithContext{msgctxt: msgctxt.clone(), msgid:msgid.clone(), msgid_plural: msgid_plural.clone(), msgstr: msgstr.clone()},
+
+      (Regular{msgid, ..}, RegularWithContext{msgstr,..}) => Regular{msgid: msgid.clone(), msgstr: msgstr.clone()},
+      (RegularWithContext{msgctxt, msgid, ..}, Regular{msgstr, ..}) => RegularWithContext{msgctxt: msgctxt.clone(), msgid: msgid.clone(), msgstr: msgstr.clone()},
+
+      (Plural{msgid, msgid_plural, ..}, PluralWithContext{msgstr, ..}) => Plural{msgid:msgid.clone(), msgid_plural: msgid_plural.clone(), msgstr: msgstr.clone()},
+      (PluralWithContext{msgctxt, msgid, msgid_plural, ..}, Plural{msgstr, ..}) => PluralWithContext{msgctxt: msgctxt.clone(), msgid:msgid.clone(), msgid_plural: msgid_plural.clone(), msgstr: msgstr.clone()},
+
+      (Header{..}, Header{..}) => self.clone(),
+
+      // Something wrong, erase translation
+      _ => key.clone(), 
     }
   }
 }
@@ -95,7 +117,7 @@ impl std::fmt::Display for PoMessage {
         let msgid = escape_string(msgid);
         let msgstr = escape_string(msgstr);
         write!(f, "\
-          msgid \"{msgid}\"\n\
+          msgid  \"{msgid}\"\n\
           msgstr \"{msgstr}\"\n\
         ")
       },
@@ -106,7 +128,7 @@ impl std::fmt::Display for PoMessage {
         let msgstr = escape_string(msgstr);
         write!(f, "\
           msgctxt \"{msgctxt}\"\n\
-          msgid \"{msgid}\"\n\
+          msgid  \"{msgid}\"\n\
           msgstr \"{msgstr}\"\n\
         ")
       },
@@ -452,7 +474,7 @@ msgstr \"\"
   #[test]
   fn simple_message() {
     let orig = "\
-msgid \"%d matching item\"
+msgid  \"%d matching item\"
 msgstr \"%d відповідний елемент\"
 ";
     let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
@@ -475,7 +497,7 @@ msgstr \"%d відповідний елемент\"
     "та не відповідають вимогам до парольних фраз: %s."
 "#;
 
-    let expected = r#"msgid ""
+    let expected = r#"msgid  ""
 "\n"
 "The minimum length for passwords consisting of characters from two classes\n"
 "that don't meet requirements for passphrases: %s."
@@ -494,7 +516,7 @@ msgstr ""
   fn simple_message_with_context() {
     let orig = "\
 msgctxt \"listbox\"
-msgid \"%d matching item\"
+msgid  \"%d matching item\"
 msgstr \"%d відповідний елемент\"
 ";
     let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
@@ -537,7 +559,7 @@ msgstr[2] \"%d відповідних елементів\"
   #[test]
   fn simple_multiline_message() {
     let orig = "\
-msgid \"foo\"
+msgid  \"foo\"
 msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"
@@ -550,7 +572,7 @@ msgstr \"\"
 
   #[test]
   fn simple_singleline_message_with_endline() {
-    let orig = r#"msgid "Only one of -s, -g, -r, or -l allowed\n"
+    let orig = r#"msgid  "Only one of -s, -g, -r, or -l allowed\n"
 msgstr "Дозволено лише одне з -s, -g, -r або -l\n"
 "#;
     let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
@@ -571,7 +593,7 @@ msgstr \"\"
 # Baz
 ";
     let expected = "\
-msgid \"foo\"
+msgid  \"foo\"
 msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"

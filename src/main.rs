@@ -245,8 +245,9 @@ IMPORTANT: Start with "<message> msgid ".
               println!("# Translated message:\n#, fuzzy\n{new_message}");
               //prev_message = new_message;
             } else {
-              eprintln!("# ERROR: Wrong msgid field when trying to translate:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====");
-              println!("# UNTranslated message (wrong id after translation):\n#, fuzzy\n{message}");
+              eprintln!("# ERROR: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Translation:\n=====\n{new_message_text_slice}\n=====");
+              let fixed_message = new_message.with_key(&message.to_key());
+              println!("# Translated message (WARNING: wrong id after translation):\n#, fuzzy\n{fixed_message}");
             }
           },
 
@@ -305,8 +306,9 @@ msgstr[2] "%s нових латок,"
               println!("# Translated message:\n#, fuzzy\n{new_message}");
               prev_message = new_message;
             } else {
-              eprintln!("# ERROR: Wrong msgid field when trying to transalte:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====");
-              println!("# UNTranslated message (wrong id after translation):\n#, fuzzy\n{message}");
+              eprintln!("# ERROR: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Translation:\n=====\n{new_message_text_slice}\n=====");
+              let fixed_message = new_message.with_key(&message.to_key());
+              println!("# Translated message (WARNING: wrong id after translation):\n#, fuzzy\n{fixed_message}");
             }
           },
 
