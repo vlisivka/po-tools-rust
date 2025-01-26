@@ -909,7 +909,10 @@ bug - помилка
     }
 
     // TODO: multiline/singleline
-    // TODO: Without words
+    // TODO: filter: without words
+    // TODO: strip spaces, lettes and numbers, then compare strings, to check correctness of special symbols
+    // TODO: split commands and their arguments into separate files
+    // TODO: try to fix messages after an problem with message is found after translation or review
 
     [ "help", .. ] | [] => help(),
     [ arg, ..] => bail!("Unknown command: \"{arg}\". Use --help for list of commands."),
