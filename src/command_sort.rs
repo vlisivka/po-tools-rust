@@ -1,7 +1,6 @@
 use anyhow::{Result, bail};
 use crate::parser::Parser;
 
-
 pub fn command_sort_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
   match cmdline {
