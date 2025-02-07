@@ -21,6 +21,33 @@ use crate::command_find_same_and_print::command_find_same_and_print;
 mod command_diff_by_str_and_print;
 use crate::command_diff_by_str_and_print::command_diff_by_str_and_print;
 
+mod command_print_translated;
+use crate::command_print_translated::command_print_translated;
+
+mod command_print_untranslated;
+use crate::command_print_untranslated::command_print_untranslated;
+
+mod command_print_regular;
+use crate::command_print_regular::command_print_regular;
+
+mod command_print_plural;
+use crate::command_print_plural::command_print_plural;
+
+mod command_print_with_context;
+use crate::command_print_with_context::command_print_with_context;
+
+mod command_print_with_word;
+use crate::command_print_with_word::command_print_with_word;
+
+mod command_print_with_wordstr;
+use crate::command_print_with_wordstr::command_print_with_wordstr;
+
+mod command_print_with_unequal_linebreaks;
+use crate::command_print_with_unequal_linebreaks::command_print_with_unequal_linebreaks;
+
+mod command_compare_files_and_print;
+use crate::command_compare_files_and_print::command_compare_files_and_print;
+
 fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
   use std::process::{Command, Stdio};
   use std::io::Write;
@@ -175,326 +202,7 @@ msgstr[2] "%s нових латок,"
   Ok(())
 }
 
-pub fn command_print_translated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
 
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        'outer: for message in messages.iter() {
-          match message {
-            Regular{msgstr, ..}
-            | RegularWithContext{msgstr, ..}
-            if msgstr.is_empty() => {},
-
-            Plural{msgstr, ..}
-            | PluralWithContext{msgstr, ..} => {
-              for msgstr in msgstr {
-                if msgstr.is_empty() {
-                  continue 'outer;
-                }
-              }
-
-              println!("{message}");
-            }
-
-            _ => println!("{message}"),
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            Regular{msgstr, ..}
-            | RegularWithContext{msgstr, ..}
-            if !msgstr.is_empty() => {},
-
-            Plural{msgstr, ..}
-            | PluralWithContext{msgstr, ..} => {
-              for msgstr in msgstr {
-                if msgstr.is_empty() {
-                  println!("{message}");
-                  break;
-                }
-              }
-            }
-
-            _ => println!("{message}"),
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_regular(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            Regular{..} | RegularWithContext{..} => println!("{message}"),
-            _ => {},
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_plural(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            Plural{..} | PluralWithContext{..} => println!("{message}"),
-            _ => {},
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            RegularWithContext{..} | PluralWithContext{..} => println!("{message}"),
-            _ => {},
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_with_word(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ keyword, files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            Regular{msgid, ..} | RegularWithContext{msgid, ..} => {
-              let mut msgid = msgid.clone();
-              msgid.make_ascii_lowercase();
-              if msgid.contains(keyword) {
-                println!("{message}");
-              }
-            }
-            Plural{msgid, msgid_plural, ..} | PluralWithContext{msgid, msgid_plural, ..}=> {
-              let mut msgid = msgid.clone();
-              msgid.make_ascii_lowercase();
-              let mut msgid_plural = msgid_plural.clone();
-              msgid_plural.make_ascii_lowercase();
-              if msgid.contains(keyword) || msgid_plural.contains(keyword) {
-                println!("{message}");
-              }
-            }
-            _ => {},
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_with_wordstr(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ keyword, files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            Regular{msgstr, ..} | RegularWithContext{msgstr, ..} => {
-              let mut msgstr = msgstr.clone();
-              msgstr.make_ascii_lowercase();
-              if msgstr.contains(keyword) {
-                println!("{message}");
-              }
-            }
-            Plural{msgstr, ..} | PluralWithContext{msgstr, ..}=> {
-              for msgstr in msgstr {
-                let mut msgstr = msgstr.clone();
-                msgstr.make_ascii_lowercase();
-                if msgstr.contains(keyword) {
-                  println!("{message}");
-                }
-              }
-            }
-            _ => {},
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  use PoMessage::*;
-
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ files @ ..  ] if files.len() > 0 => {
-      for file in files {
-         let messages = parser.parse_messages_from_file(file)?;
-
-        for message in messages.iter() {
-          match message {
-            Regular{msgid, msgstr, ..} | RegularWithContext{msgid, msgstr, ..} => {
-              let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
-              let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
-              if  msgid_nl != msgstr_nl {
-                println!("{message}");
-              }
-            }
-            Plural{msgid, msgstr, ..} | PluralWithContext{msgid, msgstr, ..}=> {
-              let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
-              for msgstr in msgstr {
-                let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
-                if  msgid_nl != msgstr_nl {
-                  println!("{message}");
-                }
-              }
-            }
-            _ => {},
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least one file is expected."),
-  }
-
-  Ok(())
-}
-
-pub fn command_compare_files_and_print(skip_same: bool, parser: &Parser, cmdline: &[&str]) -> Result<()> {
-
-  if cmdline.len() < 2 {
-    bail!("At least two files are required to compare.");
-  }
-
-  let mut messages: Vec<Vec<PoMessage>> = Vec::new();
-  for file in cmdline {
-    let file_messages = parser.parse_messages_from_file(file)?;
-    messages.push(file_messages);
-  }
-
-  for msgs in messages.iter_mut() {
-    msgs.sort();
-  }
-
-  let (head, tail) = messages.split_at(1);
-
-  'outer: for (i, m1) in head[0].iter().enumerate() {
-    if skip_same {
-      if !tail.iter().any(|msgs| msgs[i] != *m1) {
-        // All messages are same, skip them entirely
-        println!("{m1}");
-        continue 'outer;
-      }
-    }
-
-    //print!("# Message #{i} Variant 1:\n{m1}");
-    print!("# Variant 1:\n{m1}");
-
-    let k1 = m1.to_key();
-
-    for (j, msgs) in tail.iter().enumerate() {
-      let j = j + 2;
-      let k2 = msgs[i].to_key();
-
-      if k2 != k1 {
-        bail!("To compare, msgid's must be same in all files. In message #{i}, \"{k1}\" != \"{k2}\".");
-      }
-
-      print!("# Variant {j}:\n{}", msgs[i]);
-    }
-
-    println!();
-  }
-
-  Ok(())
-}
 
 pub fn command_review_files_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
 
@@ -728,7 +436,7 @@ bug - помилка
       command_review_files_and_print(aichat_command, &[ "-r", role, "-m", model ], language, number_of_plural_cases, dictionary, messages)?;
     }
 
-    [ "compare", ref cmdline @ ..  ] => command_compare_files_and_print(true, &parser, cmdline)?,
+    [ "compare", ref cmdline @ ..  ] => command_compare_files_and_print(&parser, cmdline)?,
     [ "sort", ref cmdline @ .. ] => command_sort_and_print(&parser, cmdline)?,
     [ "merge", ref cmdline @ .. ] => command_merge_and_print(&parser, cmdline)?,
     [ "diff", ref cmdline @ .. ] => command_diff_by_id_and_print(&parser, cmdline)?,
@@ -771,6 +479,7 @@ COMMANDS:
 
   * translate [OPTIONS] FILE - WIP! translate PO file using AI.
   * review [OPTIONS] FILE [FILE...] - WIP! review multiple translations of _same_ file using AI.
+  * compare FILE1 FILE[...] - list different variants of translation for the same file.
 
   * merge FILE1 FILE2 - merge two files by overwritting messages from FILE1 by messages from FILE2.
 
