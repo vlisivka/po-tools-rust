@@ -1,220 +1,25 @@
-use std::collections::HashMap;
 use anyhow::{Result, bail};
 
 mod parser;
-use self::parser::{Parser, PoMessage};
+use crate::parser::{Parser, PoMessage};
 
 mod command_sort;
-use self::command_sort::command_sort_and_print;
+use crate::command_sort::command_sort_and_print;
 
-fn command_parse_and_dump(multiline: bool, messages: &Vec<PoMessage>) -> Result<()> {
-  if multiline {
-    println!("{:#?}", messages);
-  } else {
-    println!("{:?}", messages);
-  }
+mod command_parse_and_dump;
+use crate::command_parse_and_dump::command_parse_and_dump;
 
-  Ok(())
-}
+mod command_merge_and_print;
+use crate::command_merge_and_print::command_merge_and_print;
 
-fn command_merge_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+mod command_print_added;
+use crate::command_print_added::{command_print_added, command_print_removed, command_diff_by_id_and_print};
 
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
+mod command_find_same_and_print;
+use crate::command_find_same_and_print::command_find_same_and_print;
 
-    [ orig_file, files_to_merge @ ..  ] if files_to_merge.len() > 0 => {
-      let messages1 = parser.parse_messages_from_file(orig_file)?;
-
-      let mut map: HashMap<PoMessage, PoMessage> = HashMap::new();
-
-      for m in messages1 {
-        map.insert(m.to_key(), m);
-      }
-
-      for file in files_to_merge {
-        let messages2 = parser.parse_messages_from_file(file)?;
-
-        for m in messages2 {
-          map.insert(m.to_key(), m);
-        }
-      }
-
-      let mut vec = map.into_values().collect::<Vec<PoMessage>>();
-      vec.sort();
-
-      vec.iter().for_each(|m| println!("{m}"));
-    }
-
-    _ => bail!("Two files at least are required."),
-  }
-
-  Ok(())
-}
-
-fn command_print_added(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ orig_file, files_to_diff @ ..  ] if files_to_diff.len() > 0 => {
-      let messages1 = parser.parse_messages_from_file(orig_file)?;
-
-      let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(messages1.len());
-
-      for m in messages1.iter() {
-        map.insert(m.to_key(), m);
-      }
-
-      for file_to_diff in files_to_diff {
-        println!("# File: {file_to_diff}\n");
-
-        let messages2 = parser.parse_messages_from_file(file_to_diff)?;
-
-        for m in messages2 {
-          if !map.contains_key(&m.to_key()) {
-            println!("{m}")
-          }
-        }
-      }
-    }
-
-    _ => bail!("Two files at least are required."),
-  }
-
-  Ok(())
-}
-
-fn command_print_removed(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  let cmdline_rev = [ cmdline[1], cmdline[0] ];
-  command_print_added(parser, &cmdline_rev)
-}
-
-fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
-
-    [ orig_file, files_to_diff @ ..  ] if files_to_diff.len() > 0 => {
-      let messages1 = parser.parse_messages_from_file(orig_file)?;
-
-      let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(messages1.len());
-
-      for m in messages1.iter() {
-        map.insert(m.to_key(), m);
-      }
-
-      for file_to_diff in files_to_diff {
-        println!("# File: {file_to_diff}\n");
-
-        let messages2 = parser.parse_messages_from_file(file_to_diff)?;
-
-        for m2 in messages2.iter() {
-          if let Some(m1) = map.get(&m2.to_key()) {
-            if **m1 == *m2 {
-              println!("{m2}");
-            }
-          }
-        }
-      }
-    }
-
-    _ => bail!("At least two files are required."),
-  }
-
-  Ok(())
-}
-
-fn command_diff_by_id_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  println!("# Added messages\n");
-  command_print_added(parser, cmdline)?;
-
-  println!("# Removed messages\n");
-  command_print_removed(parser, cmdline)?;
-
-  Ok(())
-}
-
-fn diff_by_str_and_print(m1: &PoMessage, m2: &PoMessage) -> Result<()> {
-  use PoMessage::*;
-
-  match m1 {
-    Header { msgstr: msgstr1 } => {
-      match m2 {
-        Header { msgstr: msgstr2 } => {
-          if msgstr1 != msgstr2 {
-            println!("# Original header:\n{m1}# New header:\n{m2}");
-          }
-        },
-        _ => bail!("Unexpected kind of PO message for comparison. Expected: header message. Got:\n{m2}"),
-      }
-    },
-
-    Regular { msgstr: msgstr1, .. }
-    | RegularWithContext { msgstr: msgstr1, .. } => {
-      match m2 {
-        Regular { msgstr: msgstr2, .. }
-        | RegularWithContext { msgstr: msgstr2, .. } => {
-          if msgstr1 != msgstr2 {
-            println!("# Original message:\n{m1}# New translation:\n{m2}");
-          }
-        }
-        _ => {
-          println!("# Original message:\n{m1}# New message:\n{m2}");
-        }
-      }
-    },
-
-    Plural { msgstr: msgstr1, .. }
-    | PluralWithContext { msgstr: msgstr1, .. } => {
-      match m2 {
-        Plural { msgstr: msgstr2, .. }
-        | PluralWithContext { msgstr: msgstr2, .. } => {
-          if msgstr1.len() < msgstr2.len() {
-            println!("# Original message:\n{m1}# New plural cases:\n{m2}");
-          } else if msgstr1.len() > msgstr2.len() {
-            println!("# Original message:\n{m1}# Removed plural cases:\n{m2}");
-          } else if std::iter::zip(msgstr1, msgstr2).any(|(msgstr1, msgstr2)| msgstr1 != msgstr2) {
-            println!("# Original message:\n{m1}# New translation:\n{m2}");
-          }
-        }
-        _ => {
-          println!("# Original message:\n{m1}# New message:\n{m2}");
-        }
-      }
-    },
-  }
-
-  Ok(())
-}
-
-fn command_diff_by_str_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => { println!("Usage pot-tools diffstr FILE FILE[S...]"); },
-    [ orig_file, files_to_diff @ .. ] if files_to_diff.len() > 0 => {
-      let orig_messages = parser.parse_messages_from_file(orig_file)?;
-
-      let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(orig_messages.len());
-
-      for m in orig_messages.iter() {
-        map.insert(m.to_key(), m);
-      }
-
-      for file_to_diff in files_to_diff {
-        println!("# File: {file_to_diff}\n");
-
-        let messages_to_diff = parser.parse_messages_from_file(file_to_diff)?;
-
-        for m in messages_to_diff {
-          if let Some(orig_message) = map.get(&m.to_key()) {
-            diff_by_str_and_print(orig_message, &m)?;
-          }
-        }
-      }
-    }
-
-    _ => { println!("ERROR: at least two files are expected."); },
-  }
-
-  Ok(())
-}
+mod command_diff_by_str_and_print;
+use crate::command_diff_by_str_and_print::command_diff_by_str_and_print;
 
 fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
   use std::process::{Command, Stdio};
@@ -240,7 +45,7 @@ fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
   }
 }
 
-fn command_translate_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, messages: &Vec<PoMessage>) -> Result<()> {
+pub fn command_translate_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, messages: &Vec<PoMessage>) -> Result<()> {
 
   let mut prev_message = PoMessage::Regular { msgid: "--help\tPrint this help message.".to_string(), msgstr: "--help\tНадрукувати цю довідку.".to_string() };
   let parser = Parser{ number_of_plural_cases };
@@ -370,7 +175,7 @@ msgstr[2] "%s нових латок,"
   Ok(())
 }
 
-fn command_print_translated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_translated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -409,7 +214,7 @@ fn command_print_translated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -447,7 +252,7 @@ fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_regular(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_regular(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -472,7 +277,7 @@ fn command_print_regular(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_plural(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_plural(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -497,7 +302,7 @@ fn command_print_plural(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -522,7 +327,7 @@ fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_with_word(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_with_word(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -562,7 +367,7 @@ fn command_print_with_word(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_with_wordstr(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_with_wordstr(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -602,7 +407,7 @@ fn command_print_with_wordstr(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   Ok(())
 }
 
-fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   use PoMessage::*;
 
   match cmdline {
@@ -642,7 +447,7 @@ fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) -> R
   Ok(())
 }
 
-fn command_compare_files_and_print(skip_same: bool, parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_compare_files_and_print(skip_same: bool, parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
   if cmdline.len() < 2 {
     bail!("At least two files are required to compare.");
@@ -691,7 +496,7 @@ fn command_compare_files_and_print(skip_same: bool, parser: &Parser, cmdline: &[
   Ok(())
 }
 
-fn command_review_files_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
+pub fn command_review_files_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, mut messages: Vec<Vec<PoMessage>>) -> Result<()> {
 
   let parser = Parser{ number_of_plural_cases };
 
@@ -836,38 +641,7 @@ bug - помилка
 
   // Parse arguments
   match tail[..] {
-    [ "parse", ..] => {
-      // Parse "parse" command options
-      let mut multiline = false;
-      let mut tail = &tail[1..];
-      loop {
-        match tail[..] {
-          [ "-m", ..] | [ "--multiline", ..] => {
-            multiline = true;
-            tail = &tail[1..];
-          }
-
-          [ "-h", .. ] | [ "-help", .. ] | [ "--help", .. ] => {
-            help_parse();
-            return Ok(());
-          }
-          [ "--", .. ] => {
-            tail = &tail[1..];
-            break;
-          }
-          [ arg, ..] if arg.starts_with('-') => bail!("Unknown option: \"{arg}\". Use --help for list of options."),
-          _ => break,
-        }
-      }
-
-      match tail[..] {
-        [ file ] => {
-          let messages = parser.parse_messages_from_file(file)?;
-          command_parse_and_dump(multiline, &messages)?;
-        }
-        _ => bail!("Expected one argument only: name of the file to parse and dump. Actual list of arguments: {:?}", tail),
-      }
-    }
+    [ "parse", ref cmdline @ ..] => command_parse_and_dump(&parser, cmdline)?,
 
     [ "translate", .. ] => {
       // Parse "translate" command options
@@ -1016,15 +790,6 @@ COMMANDS:
 
   * sort FILE - sort messages in lexical order.
   * parse - parse file and dump (for debugging)
-
-"#);
-}
-
-fn help_parse() {
-  println!(r#"
-Usage: po-tools [OPTIONS] [--] parse [OPTIONS] FILE
-
-Parse a PO file and dump to standard output for debugging.
 
 "#);
 }
