@@ -5,7 +5,7 @@ fn strip_non_symbols(s: &str) -> String {
   s.chars().filter(|c| !(c.is_alphanumeric() || c.is_whitespace() || *c == ',')).collect::<String>()
 }
 
-fn check_symbols(message: &PoMessage) -> Option<String> {
+pub fn check_symbols(message: &PoMessage) -> Option<String> {
   use PoMessage::*;
 
   match message {

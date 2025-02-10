@@ -114,9 +114,7 @@ fn main() -> Result<()> {
     [ "with-unequal-linebreaks", ref cmdline @ .. ] => command_print_with_unequal_linebreaks(&parser, cmdline)?,
     [ "check-symbols", ref cmdline @ .. ] => command_check_symbols(&parser, cmdline)?,
 
-    // TODO: split commands and their arguments into separate files
     // TODO: check: count of special tokens in msgid vs msgstr
-    // TODO: check: strip spaces, lettes and numbers, then compare strings, to check correctness of special symbols
     // TODO: check: spaces at beginning/ending of msgstr as in msgid
     // TODO: check: capital letter at beginning of msgs as in msgid
     // TODO: filter: without words

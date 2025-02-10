@@ -111,7 +111,6 @@ IMPORTANT: Start with "<message> msgid ".
 
         // Translate
         let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
-        //eprintln!("@@@@\n{new_message_text}\n@@@@\n");
 
         // Extract text between <message> and </message>, if they are present
         let new_message_text_slice = if let (Some(start), Some(end)) = (new_message_text.find("<message>"), new_message_text.find("</message>")) {
@@ -121,23 +120,22 @@ IMPORTANT: Start with "<message> msgid ".
           &new_message_text[..]
         };
 
-        let new_message_chars = new_message_text_slice.chars().chain("\n".chars()).collect::<Vec<char>>();
-
-        match parser.parse_message(&new_message_chars[..]) {
+        match parser.parse_message_from_str(new_message_text_slice) {
           Ok(new_message) =>  {
+            let errors = validate_message(&new_message);
             if message.to_key() == new_message.to_key() {
-              println!("# Translated message:\n#, fuzzy\n{new_message}");
-              //prev_message = new_message;
+              println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
+              prev_message = new_message;
             } else {
               eprintln!("# ERROR: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Translation:\n=====\n{new_message_text_slice}\n=====");
               let fixed_message = new_message.with_key(&message.to_key());
-              println!("# Translated message (WARNING: wrong id after translation):\n#, fuzzy\n{fixed_message}");
+              println!("# Translated message (WARNING: wrong id after translation):\n{errors}#, fuzzy\n{fixed_message}");
             }
           },
 
           Err(e) => {
             eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====", e);
-            println!("#UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
+            println!("# UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
           },
         }
       },
@@ -182,12 +180,11 @@ msgstr[2] "%s нових латок,"
           &new_message_text[..]
         };
 
-        let new_message_chars = new_message_text_slice.chars().chain("\n".chars()).collect::<Vec<char>>();
-
-        match parser.parse_message(&new_message_chars[..]) {
+        match parser.parse_message_from_str(new_message_text_slice) {
           Ok(new_message) =>  {
+            let errors = validate_message(&new_message);
             if message.to_key() == new_message.to_key() {
-              println!("# Translated message:\n#, fuzzy\n{new_message}");
+              println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
               prev_message = new_message;
             } else {
               eprintln!("# ERROR: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Translation:\n=====\n{new_message_text_slice}\n=====");
@@ -198,7 +195,7 @@ msgstr[2] "%s нових латок,"
 
           Err(e) => {
             eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====", e);
-            println!("#UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
+            println!("# UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
           },
         }
       }
@@ -340,15 +337,14 @@ IMPORTANT: Start with "<message> msgid ".
       &new_message_text[..]
     };
 
-    let new_message_chars = new_message_text_slice.chars().chain("\n".chars()).collect::<Vec<char>>();
-
-    match parser.parse_message(&new_message_chars[..]) {
+    match parser.parse_message_from_str(new_message_text_slice) {
       Ok(new_message) =>  {
+        let errors = validate_message(&new_message);
         if message.to_key() == new_message.to_key() {
-          println!("# Reviewed message:\n#, fuzzy\n{new_message}");
+          println!("# Reviewed message:\n{errors}#, fuzzy\n{new_message}");
         } else {
           eprintln!("# ERROR: Wrong msgid field when trying to review:\n{message}\n# Review:\n=====\n{new_message_text_slice}\n=====");
-          println!("# UNReviewed message (wrong id after review):\n#, fuzzy\n{message}");
+          println!("# Reviewed message (warning:wrong id after review):\n{errors}#, fuzzy\n{message}");
         }
       },
 
@@ -400,3 +396,12 @@ OPTIONS:
 "#);
 }
 
+
+fn validate_message(message: &PoMessage) -> String {
+  use crate::command_check_symbols::check_symbols;
+
+  match check_symbols(message) {
+    None => "".into(),
+    Some(errors) => errors,
+  }
+}
