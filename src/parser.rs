@@ -230,6 +230,10 @@ fn skip_spaces(text: &[char]) -> &[char] {
 
 impl Parser {
 
+  pub fn new(number_of_plural_cases: Option<usize>) -> Self {
+    Self{number_of_plural_cases}
+  }
+
   fn parse_keyword<'a>(&self, text: &'a[char]) -> Result<(Keyword, &'a[char])> {
     let tail = skip_spaces_and_comments(text);
 
@@ -302,6 +306,11 @@ impl Parser {
 
       tail = &tail[1..];
     }
+  }
+
+  pub fn parse_message_from_str(&self, text: &str) -> Result<PoMessage> {
+    let text_chars = text.chars().collect::<Vec<char>>();
+    self.parse_message(&text_chars)
   }
 
   pub fn parse_message(&self, text: &[char]) -> Result<PoMessage> {
@@ -423,9 +432,7 @@ impl Parser {
       let line = line.trim();
 
       if line.is_empty() && !buf.is_empty() {
-        let buf_chars = buf.chars().collect::<Vec<char>>();
-
-        let message = self.parse_message(&buf_chars[..]).context(format!("Cannot parse message at line #{line_number}. Message:\n\n{buf}"))?;
+        let message = self.parse_message_from_str(&buf).context(format!("Cannot parse message at line #{line_number}. Message:\n\n{buf}"))?;
         messages.push(message);
 
         buf.truncate(0);

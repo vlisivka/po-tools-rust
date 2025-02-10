@@ -13,6 +13,8 @@ pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) 
 
         for message in messages.iter() {
           match message {
+            Header{..} => println!("{message}"),
+
             Regular{msgid, msgstr, ..} | RegularWithContext{msgid, msgstr, ..} => {
               let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
               let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
@@ -29,7 +31,7 @@ pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) 
                 }
               }
             }
-            _ => {},
+            //_ => {},
           }
         }
       }

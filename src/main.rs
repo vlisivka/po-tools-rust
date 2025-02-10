@@ -51,6 +51,9 @@ use crate::command_compare_files_and_print::command_compare_files_and_print;
 mod command_translate_and_print;
 use crate::command_translate_and_print::{command_translate_and_print, command_review_files_and_print};
 
+mod command_check_symbols;
+use crate::command_check_symbols::command_check_symbols;
+
 fn main() -> Result<()> {
   // Options
   let mut number_of_plural_cases: Option<usize> = None;
@@ -86,7 +89,7 @@ fn main() -> Result<()> {
     }
   }
 
-  let parser = Parser{ number_of_plural_cases };
+  let parser = Parser::new(number_of_plural_cases);
 
   // Parse arguments
   match tail[..] {
@@ -109,6 +112,7 @@ fn main() -> Result<()> {
     [ "with-word", ref cmdline @ .. ] => command_print_with_word(&parser, cmdline)?,
     [ "with-wordstr", ref cmdline @ .. ] => command_print_with_wordstr(&parser, cmdline)?,
     [ "with-unequal-linebreaks", ref cmdline @ .. ] => command_print_with_unequal_linebreaks(&parser, cmdline)?,
+    [ "check-symbols", ref cmdline @ .. ] => command_check_symbols(&parser, cmdline)?,
 
     // TODO: split commands and their arguments into separate files
     // TODO: check: count of special tokens in msgid vs msgstr
@@ -153,6 +157,7 @@ COMMANDS:
   * with-word WORD FILE - print messages with given word in msgid.
   * with-wordstr WORD FILE - print messages with given word in msgstr.
   * with-unequal-linebreaks - print messages where msgstr doesn't contain same number of linebreaks as msgid.
+  * check-symbols - print messages where special symbols are not same
 
   * sort FILE - sort messages in lexical order.
   * parse - parse file and dump (for debugging)
