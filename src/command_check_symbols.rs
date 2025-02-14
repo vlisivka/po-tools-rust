@@ -15,7 +15,7 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
       let msgid_syms = strip_non_symbols(msgid);
       let msgstr_syms = strip_non_symbols(msgstr);
       if msgid_syms != msgstr_syms {
-        return Some(format!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}"));
+        return Some(format!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n"));
       }
     }
 
@@ -25,7 +25,7 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
       for msgstr in msgstr {
         let msgstr_syms = strip_non_symbols(msgstr);
         if msgid_syms != msgstr_syms {
-          return Some(format!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n#, fuzzy\n{message}"));
+          return Some(format!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n"));
         }
       }
     }
@@ -88,7 +88,7 @@ msgstr "B<%man_recode%> B<-t> I<в-кодування> {\\|B<--suffix=>I<суф�
 
     let result = check_symbols(&message);
 
-    assert_eq!(result, Some("# Warning: Incorrect symbols:\n# msgid:  <%_%><-><->{\\|<--=><\\/>\\||\\|<--->\\|}[\\|<->\\|][\\|<>\\|]\n# msgstr: <%_%><-><->{\\|<--=><\\/>\\||\\|<--->\\|}[\\|<->\\|][\\|<_>\\|]".into()));
+    assert_eq!(result, Some("# Warning: Incorrect symbols:\n# msgid:  <%_%><-><->{\\|<--=><\\/>\\||\\|<--->\\|}[\\|<->\\|][\\|<>\\|]\n# msgstr: <%_%><-><->{\\|<--=><\\/>\\||\\|<--->\\|}[\\|<->\\|][\\|<_>\\|]\n".into()));
 
     Ok(())
   }
