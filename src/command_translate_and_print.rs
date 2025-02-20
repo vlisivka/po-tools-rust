@@ -122,19 +122,20 @@ IMPORTANT: Start with "<message> msgid ".
 
         match parser.parse_message_from_str(new_message_text_slice) {
           Ok(new_message) =>  {
-            let errors = validate_message(&new_message);
             if message.to_key() == new_message.to_key() {
+              let errors = validate_message(&new_message);
               println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
               prev_message = new_message;
             } else {
-              eprintln!("# ERROR: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Translation:\n=====\n{new_message_text_slice}\n=====");
+              eprintln!("# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.");
               let fixed_message = new_message.with_key(&message.to_key());
+              let errors = validate_message(&fixed_message);
               println!("# Translated message (WARNING: wrong id after translation):\n{errors}#, fuzzy\n{fixed_message}");
             }
           },
 
           Err(e) => {
-            eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====", e);
+            eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====", e);
             println!("# UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
           },
         }
@@ -182,19 +183,20 @@ msgstr[2] "%s нових латок,"
 
         match parser.parse_message_from_str(new_message_text_slice) {
           Ok(new_message) =>  {
-            let errors = validate_message(&new_message);
             if message.to_key() == new_message.to_key() {
+              let errors = validate_message(&new_message);
               println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
               prev_message = new_message;
             } else {
-              eprintln!("# ERROR: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Translation:\n=====\n{new_message_text_slice}\n=====");
+              eprintln!("# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.");
               let fixed_message = new_message.with_key(&message.to_key());
-              println!("# Translated message (WARNING: wrong id after translation):\n#, fuzzy\n{fixed_message}");
+              let errors = validate_message(&fixed_message);
+              println!("# Translated message (WARNING: wrong id after translation):\n{errors}#, fuzzy\n{fixed_message}");
             }
           },
 
           Err(e) => {
-            eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Translation:\n=====\n{new_message_text_slice}\n=====", e);
+            eprintln!("# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====", e);
             println!("# UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}");
           },
         }
