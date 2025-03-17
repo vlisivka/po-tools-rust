@@ -114,7 +114,9 @@ fn main() -> Result<()> {
     [ "with-unequal-linebreaks", ref cmdline @ .. ] => command_print_with_unequal_linebreaks(&parser, cmdline)?,
     [ "check-symbols", ref cmdline @ .. ] => command_check_symbols(&parser, cmdline)?,
 
-    // TODO: check: count of special tokens in msgid vs msgstr
+    // TODO: dictionary. If message contains a word from the dictionary, then add dictionary record as a hint for AI
+    // TODO: sort messages by size, by msgstr, by first letter, by first special symbol, etc.
+    // TODO: split large po file into smaller chunks
     // TODO: check: spaces at beginning/ending of msgstr as in msgid
     // TODO: check: capital letter at beginning of msgs as in msgid
     // TODO: filter: without words
