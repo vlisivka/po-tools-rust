@@ -21,12 +21,10 @@ pub fn command_compare_files_and_print(parser: &Parser, cmdline: &[&str]) -> Res
   let (head, tail) = messages.split_at(1);
 
   'outer: for (i, m1) in head[0].iter().enumerate() {
-    if skip_same {
-      if !tail.iter().any(|msgs| msgs[i] != *m1) {
-        // All messages are same, skip them entirely
-        println!("{m1}");
-        continue 'outer;
-      }
+    if skip_same && !tail.iter().any(|msgs| msgs[i] != *m1) {
+      // All messages are same, skip them entirely
+      println!("{m1}");
+      continue 'outer;
     }
 
     //print!("# Message #{i} Variant 1:\n{m1}");

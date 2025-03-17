@@ -7,7 +7,7 @@ pub fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<(
   match cmdline {
     [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools with-context FILE[...]"),
 
-    [ files @ ..  ] if files.len() > 0 => {
+    files if !files.is_empty() => {
       for file in files {
          let messages = parser.parse_messages_from_file(file)?;
 

@@ -7,7 +7,7 @@ pub fn command_print_with_word(parser: &Parser, cmdline: &[&str]) -> Result<()> 
   match cmdline {
     [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools with-word KEYWORD FILE[...]"),
 
-    [ keyword, files @ ..  ] if files.len() > 0 => {
+    [ keyword, files @ ..  ] if !files.is_empty() => {
       for file in files {
          let messages = parser.parse_messages_from_file(file)?;
 

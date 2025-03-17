@@ -6,7 +6,7 @@ pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
   match cmdline {
     [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"),
 
-    [ orig_file, files_to_diff @ ..  ] if files_to_diff.len() > 0 => {
+    [ orig_file, files_to_diff @ ..  ] if !files_to_diff.is_empty() => {
       let messages1 = parser.parse_messages_from_file(orig_file)?;
 
       let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(messages1.len());

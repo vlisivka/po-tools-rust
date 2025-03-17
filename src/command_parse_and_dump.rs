@@ -26,7 +26,7 @@ pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     }
   }
 
-  if cmdline.len() == 0 { bail!("Expected one argument only: name of the file to parse and dump. Actual list of arguments: {:?}", cmdline); }
+  if cmdline.is_empty() { bail!("Expected one argument only: name of the file to parse and dump. Actual list of arguments: {:?}", cmdline); }
 
   for file in cmdline {
       let messages = parser.parse_messages_from_file(file)?;

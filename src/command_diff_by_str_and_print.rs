@@ -58,7 +58,7 @@ fn diff_by_str_and_print(m1: &PoMessage, m2: &PoMessage) -> Result<()> {
 pub fn command_diff_by_str_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   match cmdline {
     [ "-h", .. ] | [ "--help", .. ] => { println!("Usage pot-tools diffstr FILE FILE[S...]"); },
-    [ orig_file, files_to_diff @ .. ] if files_to_diff.len() > 0 => {
+    [ orig_file, files_to_diff @ .. ] if !files_to_diff.is_empty() => {
       let orig_messages = parser.parse_messages_from_file(orig_file)?;
 
       let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(orig_messages.len());

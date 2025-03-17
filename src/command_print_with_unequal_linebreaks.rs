@@ -7,7 +7,7 @@ pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) 
   match cmdline {
     [ "-h", .. ] | [ "--help", .. ] => println!("Usage: po-tools with-unequal-linebreaks FILE[...]"),
 
-    [ files @ ..  ] if files.len() > 0 => {
+    files if files.is_empty() => {
       for file in files {
          let messages = parser.parse_messages_from_file(file)?;
 
@@ -31,7 +31,6 @@ pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) 
                 }
               }
             }
-            //_ => {},
           }
         }
       }

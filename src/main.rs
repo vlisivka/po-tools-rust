@@ -60,7 +60,7 @@ fn main() -> Result<()> {
 
   // Parse aruments
   let args = std::env::args().collect::<Vec<String>>();
-  let tail = &args[1..].iter().map(|s| &s as &str).collect::<Vec<&str>>();
+  let tail = &args[1..].iter().map(|s| s as &str).collect::<Vec<&str>>();
   let mut tail = &tail[..];
 
   // Parse options
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
     match tail[..] {
       [ "-c", n, ..] | [ "--cases", n, ..] => {
         match n.parse::<usize>() {
-          Ok(n) if n >= 1 && n < 10 => {
+          Ok(n) if (1..10).contains(&n) => {
             number_of_plural_cases = Some(n);
             tail = &tail[2..];
           }

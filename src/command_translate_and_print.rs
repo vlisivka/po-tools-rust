@@ -67,7 +67,7 @@ bug - помилка
     }
   }
 
-  if cmdline.len() ==0 { bail!("Expected one argument at least: name of the file to translate."); }
+  if cmdline.is_empty() { bail!("Expected one argument at least: name of the file to translate."); }
 
   for file in cmdline {
     let messages = parser.parse_messages_from_file(file)?;
@@ -142,7 +142,7 @@ IMPORTANT: Start with "<message> msgid ".
       },
 
       PoMessage::Plural{..} | PoMessage::PluralWithContext{..} => {
-        let number_of_plural_cases = if let Some(number_of_plural_cases) = number_of_plural_cases { number_of_plural_cases } else { 2 };
+        let number_of_plural_cases = number_of_plural_cases.unwrap_or(2);
         // Translation template
         let message_text = format!(r#"
 <instruction>
@@ -251,7 +251,7 @@ bug - помилка
     }
   }
 
-  if cmdline.len() ==0 { bail!("Expected one argument at least: name of the file to review."); }
+  if cmdline.is_empty() { bail!("Expected one argument at least: name of the file to review."); }
 
   let mut messages = Vec::new();
   for file in cmdline {

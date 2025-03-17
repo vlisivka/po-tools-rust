@@ -40,7 +40,7 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   match cmdline {
     [ "-h", .. ] | [ "--help", .. ] => help(),
 
-    [ files @ ..  ] if files.len() > 0 => {
+    files if !files.is_empty() => {
       for file in files {
          let messages = parser.parse_messages_from_file(file)?;
 
