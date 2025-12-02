@@ -235,6 +235,7 @@ impl Parser {
   }
 
   fn parse_keyword<'a>(&self, text: &'a[char]) -> Result<(Keyword, &'a[char])> {
+    // TODO: Parse comments to support fuzzy messages
     let tail = skip_spaces_and_comments(text);
 
     match tail[..] {
@@ -319,6 +320,7 @@ impl Parser {
 
     let mut tail = text;
     loop {
+      // TODO: Parse comments to support fuzzy messages
       let (kw, t) = self.parse_keyword(tail).context("Expected msgid \"...\" or msgctxt \"...\".")?;
       let (s, t) = self.parse_string(t).context("Expected msgid \"...\" or msgctxt \"...\".")?;
       tail = t;

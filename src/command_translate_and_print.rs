@@ -1,29 +1,6 @@
 use anyhow::{Result, bail};
 use crate::parser::{Parser, PoMessage};
-
-fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
-  use std::process::{Command, Stdio};
-  use std::io::Write;
-
-  let mut child = Command::new(command)
-    .args(args)
-    .stdin(Stdio::piped())
-    .stdout(Stdio::piped())
-    .spawn()?;
-
-  let mut stdin = child.stdin.take().unwrap();
-  let text = text.to_string();
-  std::thread::spawn(move || {
-    stdin.write_all(text.as_bytes()).expect("Cannot write to stdin");
-  });
-
-  let output = child.wait_with_output()?;
-  if output.status.success() {
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-  } else {
-    bail!("Command \"{command}\" failed with non-zero exit code. Command args: {:?}", args)
-  }
-}
+use crate::util::pipe_to_command;
 
 pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
   let dictionary = r#"
@@ -31,7 +8,7 @@ patch - латка
 bug - помилка
 "#;
   let mut language = "Ukrainian";
-  let mut model = "ollama:phi4:14b-q8_0";
+  let mut model = "ollama:phi4:latest";
   let mut role = "translate-po";
   let aichat_command = "aichat";
 
@@ -362,7 +339,7 @@ IMPORTANT: Start with "<message> msgid ".
 
 fn help_translate() {
   println!(r#"
-Usage: po-tools [GLOBAL_OPTIONS] translate [-m MODEL|-l LANG] [--] FILE
+Usage: po-tools [GLOBAL_OPTIONS] translate [OPTIONS] [--] FILE
 
 WORK IN PROGRESS.
 
@@ -381,7 +358,7 @@ OPTIONS:
 
 fn help_review() {
   println!(r#"
-Usage: po-tools [GLOBAL_OPTIONS] review [-m MODEL|-l LANG] [--] FILE1 [FILE2...]
+Usage: po-tools [GLOBAL_OPTIONS] review [OPTIONS] [--] FILE1 [FILE2...]
 
 WORK IN PROGRESS.
 

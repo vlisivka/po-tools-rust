@@ -51,8 +51,16 @@ use crate::command_compare_files_and_print::command_compare_files_and_print;
 mod command_translate_and_print;
 use crate::command_translate_and_print::{command_translate_and_print, command_review_files_and_print};
 
+mod command_erase_and_print;
+use crate::command_erase_and_print::command_erase_and_print;
+
 mod command_check_symbols;
 use crate::command_check_symbols::command_check_symbols;
+
+mod command_filter_with_ai_and_print;
+use crate::command_filter_with_ai_and_print::command_filter_with_ai_and_print;
+
+mod util;
 
 fn main() -> Result<()> {
   // Options
@@ -95,6 +103,7 @@ fn main() -> Result<()> {
   match tail[..] {
     [ "parse", ref cmdline @ ..] => command_parse_and_dump(&parser, cmdline)?,
     [ "translate", ref cmdline @ ..] => command_translate_and_print(&parser, cmdline)?,
+    [ "erase", ref cmdline @ ..] => command_erase_and_print(&parser, cmdline)?,
     [ "review", ref cmdline @ .. ] => command_review_files_and_print(&parser, cmdline)?,
     [ "compare", ref cmdline @ ..  ] => command_compare_files_and_print(&parser, cmdline)?,
     [ "sort", ref cmdline @ .. ] => command_sort_and_print(&parser, cmdline)?,
@@ -113,7 +122,9 @@ fn main() -> Result<()> {
     [ "with-wordstr", ref cmdline @ .. ] => command_print_with_wordstr(&parser, cmdline)?,
     [ "with-unequal-linebreaks", ref cmdline @ .. ] => command_print_with_unequal_linebreaks(&parser, cmdline)?,
     [ "check-symbols", ref cmdline @ .. ] => command_check_symbols(&parser, cmdline)?,
+    [ "filter", ref cmdline @ .. ] => command_filter_with_ai_and_print(&parser, cmdline)?,
 
+    // TODO: Parse comments to support fuzzy messages
     // TODO: dictionary. If message contains a word from the dictionary, then add dictionary record as a hint for AI
     // TODO: sort messages by size, by msgstr, by first letter, by first special symbol, etc.
     // TODO: split large po file into smaller chunks
@@ -136,13 +147,16 @@ fn help() {
   println!(r#"
 Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] [COMMAND_ARGUMENTS]
 
-COMMANDS:
+COMMANDS
 
   * translate [OPTIONS] FILE - WIP! translate PO file using AI.
+  * filter [OPTIONS] FILE - WIP! review messages.
   * review [OPTIONS] FILE [FILE...] - WIP! review multiple translations of _same_ file using AI.
   * compare FILE1 FILE[...] - list different variants of translation for the same file.
 
   * merge FILE1 FILE2 - merge two files by overwritting messages from FILE1 by messages from FILE2.
+
+  * erase FILE[...] - erase translations of messages
 
   * diff FILE1 FILE2 - diff two files by msgid.
   * diffstr FILE1 FILE2 - diff two files by msgstr.
@@ -161,6 +175,10 @@ COMMANDS:
 
   * sort FILE - sort messages in lexical order.
   * parse - parse file and dump (for debugging)
+
+OPTIONS
+
+  -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has less than PLURAL_CASES, then empty ones will be added.
 
 "#);
 }
