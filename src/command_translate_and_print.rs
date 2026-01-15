@@ -10,6 +10,7 @@ bug - помилка
   let mut language = "Ukrainian";
   let mut model = "ollama:phi4:latest";
   let mut role = "translate-po";
+  let mut rag = "";
   let aichat_command = "aichat";
 
   // Parse "translate" command options
@@ -18,6 +19,11 @@ bug - помилка
     match cmdline[..] {
       [ "-m", model_name, ..] | [ "--model", model_name, ..] => {
         model = model_name;
+        cmdline = &cmdline[2..];
+      }
+
+      [ "-R", rag_name, ..] | [ "--rag", rag_name, ..] => {
+        rag = rag_name;
         cmdline = &cmdline[2..];
       }
 
@@ -46,9 +52,12 @@ bug - помилка
 
   if cmdline.is_empty() { bail!("Expected one argument at least: name of the file to translate."); }
 
+  let aichat_options =  [ "-r", role, "-m", model ];
+  let aichat_options_with_rag =  [ "-r", role, "-m", model , "--rag", rag ];
+
   for file in cmdline {
     let messages = parser.parse_messages_from_file(file)?;
-    translate_and_print(aichat_command, &[ "-r", role, "-m", model ], language, parser.number_of_plural_cases, dictionary, &messages)?;
+    translate_and_print(aichat_command, if rag.is_empty() { &aichat_options } else { &aichat_options_with_rag }, language, parser.number_of_plural_cases, dictionary, &messages)?;
   }
 
   Ok(())
@@ -57,7 +66,6 @@ bug - помилка
 
 fn translate_and_print(aichat_command: &str, aichat_options: &[&str], language: &str, number_of_plural_cases: Option<usize>, dictionary: &str, messages: &Vec<PoMessage>) -> Result<()> {
 
-  let mut prev_message = PoMessage::Regular { msgid: "--help\tPrint this help message.".to_string(), msgstr: "--help\tНадрукувати цю довідку.".to_string() };
   let parser = Parser{ number_of_plural_cases };
 
   for message in messages {
@@ -70,17 +78,14 @@ fn translate_and_print(aichat_command: &str, aichat_options: &[&str], language: 
         let message_text = format!(r#"
 <instruction>
 Act as technical translator for Gettext .po files.
-Translate PO message in <message></message> tag to {language} Language. IMPORTANT: Copy msgid field verbatim, put translation into msgstr field.
+Translate PO message in <message></message> tag to {language} language. IMPORTANT: Copy msgid field verbatim, put translation into msgstr field.
 Resulting message must be correct Gettext PO Message, wrapped in <message></message> tag.
 In translated message, msgid field must be copied intact first, then msgstr field must be translation of msgid to {language} language.
-IMPORTANT: Start with "<message> msgid ".
+IMPORTANT: Start reply with "<message> msgid ", then write translation in msgstr.
 </instruction>
 <message>
 {message}
 </message>
-<example>
-{prev_message}
-</example>
 <dictionary>
 {dictionary}
 </dictionary>
@@ -102,7 +107,6 @@ IMPORTANT: Start with "<message> msgid ".
             if message.to_key() == new_message.to_key() {
               let errors = validate_message(&new_message);
               println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
-              prev_message = new_message;
             } else {
               eprintln!("# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.");
               let fixed_message = new_message.with_key(&message.to_key());
@@ -124,7 +128,7 @@ IMPORTANT: Start with "<message> msgid ".
         let message_text = format!(r#"
 <instruction>
 Act as technical translator for Gettext .po files.
-Translate PO message in <message></message> tag to {language} Language. IMPORTANT: Copy msgid and msgid_plural fields verbatim,
+Translate PO message in <message></message> tag to {language} language. IMPORTANT: Copy msgid and msgid_plural fields verbatim,
 put translation into msgstr[] fields. Resulting message must be correct Gettext PO Message, wrapped in <message></message> tag.
 In translated message, msgid and msgid_plural fields must be copied intact first, then all {number_of_plural_cases} msgstr[] fields must be translation
 of msgid and msgid_plural to {language} language. IMPORTANT: Start with "<message> msgid ".
@@ -163,7 +167,6 @@ msgstr[2] "%s нових латок,"
             if message.to_key() == new_message.to_key() {
               let errors = validate_message(&new_message);
               println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
-              prev_message = new_message;
             } else {
               eprintln!("# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.");
               let fixed_message = new_message.with_key(&message.to_key());
@@ -348,10 +351,14 @@ Translate messages in PO file using AI tools (aichat, ollama).
 OPTIONS:
 
   -l | --language LANG  Language to use. Default value: "Ukrainian".
+
   -m | --model MODEL    AI model to use with aichat. Default value: "ollama:phi4:14b-q8_0".
                         Additional models: "aya-expanse:32b-q3_K_S", "codestral:22b-v0.1-q5_K_S".
+
   -r | --role ROLE      AI role to use with aichat.  Default value: "translate-po".
                         For better reproducibility, set temperature and top_p to 0, to remove randomness.
+
+  -R | --rag RAG        aichat RAG to use.
 
 "#);
 }
@@ -367,8 +374,10 @@ Review multiple different translations of same messages and select the bese one 
 OPTIONS:
 
   -l | --language LANG  Language to use. Default value: "Ukrainian".
+
   -m | --model MODEL    AI model to use with aichat. Default value: "ollama:phi4:14b-q8_0".
                         Additional models: "aya-expanse:32b-q3_K_S", "codestral:22b-v0.1-q5_K_S".
+
   -r | --role ROLE      AI role to use with aichat.  Default value: "translate-po".
                         For better reproducibility, set temperature and top_p to 0, to remove randomness.
 
@@ -378,6 +387,27 @@ OPTIONS:
 
 fn validate_message(message: &PoMessage) -> String {
   use crate::command_check_symbols::check_symbols;
+  use crate::command_translate_and_print::PoMessage::*;
+
+  match message {
+    Regular{msgstr, ..}
+    | RegularWithContext{msgstr, ..} => {
+      if msgstr.is_empty() {
+          return "Message is not translated.".to_string();
+      }
+    }
+
+    Plural{msgstr, ..}
+    | PluralWithContext{msgstr, ..} => {
+      for msgstr in msgstr {
+        if msgstr.is_empty() {
+          return "Message is not translated fully.".to_string();
+        }
+      }
+    }
+
+    Header{ .. } => { },
+  }
 
   match check_symbols(message) {
     None => "".into(),
