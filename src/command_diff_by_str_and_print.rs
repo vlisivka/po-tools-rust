@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use anyhow::{Result, bail};
 use crate::parser::{Parser, PoMessage};
+use anyhow::{bail, Result};
+use std::collections::HashMap;
 
 fn diff_by_str_and_print(m1: &PoMessage, m2: &PoMessage) -> Result<()> {
-  use PoMessage::*;
+    use PoMessage::*;
 
-  match m1 {
+    match m1 {
     Header { msgstr: msgstr1 } => {
       match m2 {
         Header { msgstr: msgstr2 } => {
@@ -52,36 +52,41 @@ fn diff_by_str_and_print(m1: &PoMessage, m2: &PoMessage) -> Result<()> {
     },
   }
 
-  Ok(())
+    Ok(())
 }
 
 pub fn command_diff_by_str_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-  match cmdline {
-    [ "-h", .. ] | [ "--help", .. ] => { println!("Usage pot-tools diffstr FILE FILE[S...]"); },
-    [ orig_file, files_to_diff @ .. ] if !files_to_diff.is_empty() => {
-      let orig_messages = parser.parse_messages_from_file(orig_file)?;
-
-      let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(orig_messages.len());
-
-      for m in orig_messages.iter() {
-        map.insert(m.to_key(), m);
-      }
-
-      for file_to_diff in files_to_diff {
-        println!("# File: {file_to_diff}\n");
-
-        let messages_to_diff = parser.parse_messages_from_file(file_to_diff)?;
-
-        for m in messages_to_diff {
-          if let Some(orig_message) = map.get(&m.to_key()) {
-            diff_by_str_and_print(orig_message, &m)?;
-          }
+    match cmdline {
+        ["-h", ..] | ["--help", ..] => {
+            println!("Usage pot-tools diffstr FILE FILE[S...]");
         }
-      }
+        [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
+            let orig_messages = parser.parse_messages_from_file(orig_file)?;
+
+            let mut map: HashMap<PoMessage, &PoMessage> =
+                HashMap::with_capacity(orig_messages.len());
+
+            for m in orig_messages.iter() {
+                map.insert(m.to_key(), m);
+            }
+
+            for file_to_diff in files_to_diff {
+                println!("# File: {file_to_diff}\n");
+
+                let messages_to_diff = parser.parse_messages_from_file(file_to_diff)?;
+
+                for m in messages_to_diff {
+                    if let Some(orig_message) = map.get(&m.to_key()) {
+                        diff_by_str_and_print(orig_message, &m)?;
+                    }
+                }
+            }
+        }
+
+        _ => {
+            println!("ERROR: at least two files are expected.");
+        }
     }
 
-    _ => { println!("ERROR: at least two files are expected."); },
-  }
-
-  Ok(())
+    Ok(())
 }

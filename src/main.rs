@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 
 mod parser;
 use crate::parser::Parser;
@@ -13,7 +13,9 @@ mod command_merge_and_print;
 use crate::command_merge_and_print::command_merge_and_print;
 
 mod command_print_added;
-use crate::command_print_added::{command_print_added, command_print_removed, command_diff_by_id_and_print};
+use crate::command_print_added::{
+    command_diff_by_id_and_print, command_print_added, command_print_removed,
+};
 
 mod command_find_same_and_print;
 use crate::command_find_same_and_print::command_find_same_and_print;
@@ -49,7 +51,9 @@ mod command_compare_files_and_print;
 use crate::command_compare_files_and_print::command_compare_files_and_print;
 
 mod command_translate_and_print;
-use crate::command_translate_and_print::{command_translate_and_print, command_review_files_and_print};
+use crate::command_translate_and_print::{
+    command_review_files_and_print, command_translate_and_print,
+};
 
 mod command_erase_and_print;
 use crate::command_erase_and_print::command_erase_and_print;
@@ -63,17 +67,17 @@ use crate::command_filter_with_ai_and_print::command_filter_with_ai_and_print;
 mod util;
 
 fn main() -> Result<()> {
-  // Options
-  let mut number_of_plural_cases: Option<usize> = None;
+    // Options
+    let mut number_of_plural_cases: Option<usize> = None;
 
-  // Parse aruments
-  let args = std::env::args().collect::<Vec<String>>();
-  let tail = &args[1..].iter().map(|s| s as &str).collect::<Vec<&str>>();
-  let mut tail = &tail[..];
+    // Parse aruments
+    let args = std::env::args().collect::<Vec<String>>();
+    let tail = &args[1..].iter().map(|s| s as &str).collect::<Vec<&str>>();
+    let mut tail = &tail[..];
 
-  // Parse options
-  loop {
-    match tail[..] {
+    // Parse options
+    loop {
+        match tail[..] {
       [ "-c", n, ..] | [ "--cases", n, ..] => {
         match n.parse::<usize>() {
           Ok(n) if (1..10).contains(&n) => {
@@ -95,56 +99,57 @@ fn main() -> Result<()> {
       [ arg, ..] if arg.starts_with('-') => bail!("Unknown option: \"{arg}\". Use --help for list of options."),
       _ => break,
     }
-  }
+    }
 
-  let parser = Parser::new(number_of_plural_cases);
+    let parser = Parser::new(number_of_plural_cases);
 
-  // Parse arguments
-  match tail[..] {
-    [ "parse", ref cmdline @ ..] => command_parse_and_dump(&parser, cmdline)?,
-    [ "translate", ref cmdline @ ..] => command_translate_and_print(&parser, cmdline)?,
-    [ "erase", ref cmdline @ ..] => command_erase_and_print(&parser, cmdline)?,
-    [ "review", ref cmdline @ .. ] => command_review_files_and_print(&parser, cmdline)?,
-    [ "compare", ref cmdline @ ..  ] => command_compare_files_and_print(&parser, cmdline)?,
-    [ "sort", ref cmdline @ .. ] => command_sort_and_print(&parser, cmdline)?,
-    [ "merge", ref cmdline @ .. ] => command_merge_and_print(&parser, cmdline)?,
-    [ "diff", ref cmdline @ .. ] => command_diff_by_id_and_print(&parser, cmdline)?,
-    [ "diffstr", ref cmdline @ .. ] => command_diff_by_str_and_print(&parser, cmdline)?,
-    [ "same", ref cmdline @ .. ] => command_find_same_and_print(&parser, cmdline)?,
-    [ "added", ref cmdline @ .. ] => command_print_added(&parser, cmdline)?,
-    [ "removed", ref cmdline @ .. ] => command_print_removed(&parser, cmdline)?,
-    [ "translated", ref cmdline @ .. ] => command_print_translated(&parser, cmdline)?,
-    [ "untranslated", ref cmdline @ .. ] => command_print_untranslated(&parser, cmdline)?,
-    [ "regular", ref cmdline @ .. ] => command_print_regular(&parser, cmdline)?,
-    [ "plural", ref cmdline @ .. ] => command_print_plural(&parser, cmdline)?,
-    [ "with-context", ref cmdline @ .. ] => command_print_with_context(&parser, cmdline)?,
-    [ "with-word", ref cmdline @ .. ] => command_print_with_word(&parser, cmdline)?,
-    [ "with-wordstr", ref cmdline @ .. ] => command_print_with_wordstr(&parser, cmdline)?,
-    [ "with-unequal-linebreaks", ref cmdline @ .. ] => command_print_with_unequal_linebreaks(&parser, cmdline)?,
-    [ "check-symbols", ref cmdline @ .. ] => command_check_symbols(&parser, cmdline)?,
-    [ "filter", ref cmdline @ .. ] => command_filter_with_ai_and_print(&parser, cmdline)?,
+    // Parse arguments
+    match tail[..] {
+        ["parse", ref cmdline @ ..] => command_parse_and_dump(&parser, cmdline)?,
+        ["translate", ref cmdline @ ..] => command_translate_and_print(&parser, cmdline)?,
+        ["erase", ref cmdline @ ..] => command_erase_and_print(&parser, cmdline)?,
+        ["review", ref cmdline @ ..] => command_review_files_and_print(&parser, cmdline)?,
+        ["compare", ref cmdline @ ..] => command_compare_files_and_print(&parser, cmdline)?,
+        ["sort", ref cmdline @ ..] => command_sort_and_print(&parser, cmdline)?,
+        ["merge", ref cmdline @ ..] => command_merge_and_print(&parser, cmdline)?,
+        ["diff", ref cmdline @ ..] => command_diff_by_id_and_print(&parser, cmdline)?,
+        ["diffstr", ref cmdline @ ..] => command_diff_by_str_and_print(&parser, cmdline)?,
+        ["same", ref cmdline @ ..] => command_find_same_and_print(&parser, cmdline)?,
+        ["added", ref cmdline @ ..] => command_print_added(&parser, cmdline)?,
+        ["removed", ref cmdline @ ..] => command_print_removed(&parser, cmdline)?,
+        ["translated", ref cmdline @ ..] => command_print_translated(&parser, cmdline)?,
+        ["untranslated", ref cmdline @ ..] => command_print_untranslated(&parser, cmdline)?,
+        ["regular", ref cmdline @ ..] => command_print_regular(&parser, cmdline)?,
+        ["plural", ref cmdline @ ..] => command_print_plural(&parser, cmdline)?,
+        ["with-context", ref cmdline @ ..] => command_print_with_context(&parser, cmdline)?,
+        ["with-word", ref cmdline @ ..] => command_print_with_word(&parser, cmdline)?,
+        ["with-wordstr", ref cmdline @ ..] => command_print_with_wordstr(&parser, cmdline)?,
+        ["with-unequal-linebreaks", ref cmdline @ ..] => {
+            command_print_with_unequal_linebreaks(&parser, cmdline)?
+        }
+        ["check-symbols", ref cmdline @ ..] => command_check_symbols(&parser, cmdline)?,
+        ["filter", ref cmdline @ ..] => command_filter_with_ai_and_print(&parser, cmdline)?,
 
-    // TODO: Parse comments to support fuzzy messages
-    // TODO: dictionary. If message contains a word from the dictionary, then add dictionary record as a hint for AI
-    // TODO: sort messages by size, by msgstr, by first letter, by first special symbol, etc.
-    // TODO: split large po file into smaller chunks
-    // TODO: check: spaces at beginning/ending of msgstr as in msgid
-    // TODO: check: capital letter at beginning of msgs as in msgid
-    // TODO: filter: without words
-    // TODO: try to fix messages after an problem with message is found after translation or review
-    // TODO: multiline/singleline
-    // TODO: check: spelling
+        // TODO: Parse comments to support fuzzy messages
+        // TODO: dictionary. If message contains a word from the dictionary, then add dictionary record as a hint for AI
+        // TODO: sort messages by size, by msgstr, by first letter, by first special symbol, etc.
+        // TODO: split large po file into smaller chunks
+        // TODO: check: spaces at beginning/ending of msgstr as in msgid
+        // TODO: check: capital letter at beginning of msgs as in msgid
+        // TODO: filter: without words
+        // TODO: try to fix messages after an problem with message is found after translation or review
+        // TODO: multiline/singleline
+        // TODO: check: spelling
+        ["help", ..] | [] => help(),
+        [arg, ..] => bail!("Unknown command: \"{arg}\". Use --help for list of commands."),
+    }
 
-    [ "help", .. ] | [] => help(),
-    [ arg, ..] => bail!("Unknown command: \"{arg}\". Use --help for list of commands."),
-
-  }
-
-  Ok(())
+    Ok(())
 }
 
 fn help() {
-  println!(r#"
+    println!(
+        r#"
 Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] [COMMAND_ARGUMENTS]
 
 COMMANDS
@@ -180,6 +185,6 @@ OPTIONS
 
   -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has less than PLURAL_CASES, then empty ones will be added.
 
-"#);
+"#
+    );
 }
-
