@@ -373,7 +373,8 @@ impl Parser {
       // End of regular message
       Keyword::Msgstr => {
         let tail = skip_spaces_and_comments(tail);
-        if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()); }
+        // FIXME: add option to ignore garbage after end of msgstr:
+        //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()); }
 
         match msgctxt {
           None => Ok(PoMessage::Regular { msgid: msgid.unwrap(), msgstr: s }),

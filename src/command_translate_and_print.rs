@@ -128,8 +128,9 @@ fn find_fuzzy_matches<'a>(message: &PoMessage, tm_messages: &'a [PoMessage]) -> 
     // Sort by score descending
     matches.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Take top 10
-    matches.into_iter().take(10).map(|(_, msg)| msg).collect()
+    // Take top 5
+    // TODO: make number of matches configurable
+    matches.into_iter().take(5).map(|(_, msg)| msg).collect()
 }
 
 fn translate_and_print(
@@ -156,7 +157,7 @@ fn translate_and_print(
                 let fuzzy_matches = find_fuzzy_matches(message, tm_messages);
                 let fuzzy_match_text = if !fuzzy_matches.is_empty() {
                     let mut text =
-                        String::from("<context>\nFuzzy matches from translation memory:\n");
+                        String::from("<context>\n# Fuzzy matches from translation memory:\n");
                     for m in fuzzy_matches {
                         text.push_str(&format!("{}\n", m));
                     }
@@ -170,26 +171,31 @@ fn translate_and_print(
                 let message_text = format!(
                     r#"
 <instruction>
-Act as technical translator for Gettext .po files.
-Translate PO message in <message></message> tag to {language} language. IMPORTANT: Copy msgid field verbatim, put translation into msgstr field.
-Resulting message must be correct Gettext PO Message, wrapped in <message></message> tag.
-In translated message, msgid field must be copied intact first, then msgstr field must be translation of msgid to {language} language.
-IMPORTANT: Start reply with "<message> msgid ", then write translation in msgstr.
+INPORTANT: Translate text in <message></message> tag only and _nothing else_.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verabatim copy of original msgid, while msgstr must be Ukrainian translations.
+IMPORTANT: Don't translate <context>. It just for reference.
+You are a professional English (en_US) to Ukrainian (uk_UA) translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to Ukrainian grammar, vocabulary, and cultural sensitivities.
+Produce only the Ukrainian translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into Ukrainian:
 </instruction>
+
 <message>
 {message}
 </message>
+
 {fuzzy_match_text}
-<dictionary>{dictionary}</dictionary>
 "#
                 );
-                eprintln!("--------------------------------------------------------------------------------");
+                eprintln!("----Message to aichat-----------------------------------------------------------");
                 eprintln!("{message_text}");
-                eprintln!("--------------------------------------------------------------------------------");
+                eprintln!("----End of message--------------------------------------------------------------");
 
                 // Translate
                 let new_message_text =
                     pipe_to_command(aichat_command, aichat_options, &message_text)?;
+
+                eprintln!("----Reply from aichat-----------------------------------------------------------");
+                eprintln!("{new_message_text}");
+                eprintln!("----End of reply----------------------------------------------------------------");
 
                 // Extract text between <message> and </message>, if they are present
                 let new_message_text_slice = if let (Some(start), Some(end)) = (
@@ -198,6 +204,8 @@ IMPORTANT: Start reply with "<message> msgid ", then write translation in msgstr
                 ) {
                     let tag_len = "<message>".len();
                     &new_message_text[(start + tag_len)..end]
+                } else if let Some(start) = new_message_text.find("msgid ") {
+                    &new_message_text[start..]
                 } else {
                     &new_message_text[..]
                 };
@@ -206,12 +214,12 @@ IMPORTANT: Start reply with "<message> msgid ", then write translation in msgstr
                     Ok(new_message) => {
                         if message.to_key() == new_message.to_key() {
                             let errors = validate_message(&new_message);
-                            println!("# Translated message:\n{errors}#, fuzzy\n{new_message}");
+                            println!("# Translated message:\n#{errors}\n#, fuzzy\n{new_message}");
                         } else {
-                            eprintln!("# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.");
+                            eprintln!("# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id.\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====");
                             let fixed_message = new_message.with_key(&message.to_key());
                             let errors = validate_message(&fixed_message);
-                            println!("# Translated message (WARNING: wrong id after translation):\n{errors}#, fuzzy\n{fixed_message}");
+                            println!("# Translated message (WARNING: wrong id after translation):\n#{errors}\n#, fuzzy\n{fixed_message}");
                         }
                     }
 
