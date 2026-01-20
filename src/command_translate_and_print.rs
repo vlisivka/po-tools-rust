@@ -4,12 +4,8 @@ use anyhow::{bail, Result};
 use strsim::normalized_levenshtein;
 
 pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    let dictionary = r#"
-patch - латка
-bug - помилка
-"#;
     let mut language = "Ukrainian";
-    let mut model = "ollama:phi4:latest";
+    let mut model = "ollama:translategemma:12b";
     let mut role = "translate-po";
     let mut rag = "";
     let mut tm_file = "";
@@ -94,7 +90,6 @@ bug - помилка
             },
             language,
             parser.number_of_plural_cases,
-            dictionary,
             &messages,
             &tm_messages,
         )?;
@@ -138,7 +133,6 @@ fn translate_and_print(
     aichat_options: &[&str],
     language: &str,
     number_of_plural_cases: Option<usize>,
-    dictionary: &str,
     messages: &Vec<PoMessage>,
     tm_messages: &Vec<PoMessage>,
 ) -> Result<()> {
@@ -172,10 +166,10 @@ fn translate_and_print(
                     r#"
 <instruction>
 INPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verabatim copy of original msgid, while msgstr must be Ukrainian translations.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verabatim copy of original msgid, while msgstr must be {language} translations.
 IMPORTANT: Don't translate <context>. It just for reference.
-You are a professional English (en_US) to Ukrainian (uk_UA) translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to Ukrainian grammar, vocabulary, and cultural sensitivities.
-Produce only the Ukrainian translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into Ukrainian:
+You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
+Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
 </instruction>
 
 <message>
@@ -185,14 +179,17 @@ Produce only the Ukrainian translation, without any additional explanations or c
 {fuzzy_match_text}
 "#
                 );
-                eprintln!("----Message to aichat-----------------------------------------------------------");
-                eprintln!("{message_text}");
-                eprintln!("----End of message--------------------------------------------------------------");
+
+                // FIXME: Make printing of this message configurational via command line option --debug
+                //eprintln!("----Message to aichat-----------------------------------------------------------");
+                //eprintln!("{message_text}");
+                //eprintln!("----End of message--------------------------------------------------------------");
 
                 // Translate
                 let new_message_text =
                     pipe_to_command(aichat_command, aichat_options, &message_text)?;
 
+                // FIXME: Make printing of this message configurational via command line option
                 eprintln!("----Reply from aichat-----------------------------------------------------------");
                 eprintln!("{new_message_text}");
                 eprintln!("----End of reply----------------------------------------------------------------");
@@ -249,6 +246,19 @@ Produce only the Ukrainian translation, without any additional explanations or c
                 let message_text = format!(
                     r#"
 <instruction>
+INPORTANT: Translate text in <message></message> tag only and _nothing else_.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verabatim copy of original msgid, while msgstr must be {language} translations.
+IMPORTANT: Don't translate <context>. It just for reference.
+You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
+Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
+</instruction>
+
+<message>
+{message}
+</message>
+
+{fuzzy_match_text}
+<instruction>
 Act as technical translator for Gettext .po files.
 Translate PO message in <message></message> tag to {language} language. IMPORTANT: Copy msgid and msgid_plural fields verbatim,
 put translation into msgstr[] fields. Resulting message must be correct Gettext PO Message, wrapped in <message></message> tag.
@@ -266,16 +276,21 @@ msgstr[0] "%s нова латка,"
 msgstr[1] "%s нові латки,"
 msgstr[2] "%s нових латок,"
 </example>
-<dictionary>{dictionary}</dictionary>
 "#
                 );
-                eprintln!("--------------------------------------------------------------------------------");
-                eprintln!("{message_text}");
-                eprintln!("--------------------------------------------------------------------------------");
+                // FIXME: Make printing of this message configurational via command line option --debug
+                //eprintln!("----Message to aichat-----------------------------------------------------------");
+                //eprintln!("{message_text}");
+                //eprintln!("----End of message--------------------------------------------------------------");
 
                 // Translate
                 let new_message_text =
                     pipe_to_command(aichat_command, aichat_options, &message_text)?;
+
+                // FIXME: Make printing of this message configurational via command line option
+                eprintln!("----Reply from aichat-----------------------------------------------------------");
+                eprintln!("{new_message_text}");
+                eprintln!("----End of reply----------------------------------------------------------------");
 
                 let parser = Parser {
                     number_of_plural_cases: Some(number_of_plural_cases),
@@ -318,12 +333,8 @@ msgstr[2] "%s нових латок,"
 }
 
 pub fn command_review_files_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    let dictionary = r#"
-patch - латка
-bug - помилка
-"#;
     let mut language = "Ukrainian";
-    let mut model = "ollama:phi4:14b-q8_0";
+    let mut model = "ollama:translategemma:12b";
     let mut role = "translate-po";
     let aichat_command = "aichat";
 
@@ -378,7 +389,6 @@ bug - помилка
         &["-r", role, "-m", model],
         language,
         parser.number_of_plural_cases,
-        dictionary,
         messages,
     )?;
 
@@ -390,7 +400,6 @@ fn review_files_and_print(
     aichat_options: &[&str],
     language: &str,
     number_of_plural_cases: Option<usize>,
-    dictionary: &str,
     mut messages: Vec<Vec<PoMessage>>,
 ) -> Result<()> {
     let parser = Parser {
@@ -450,9 +459,6 @@ IMPORTANT: Start with "<message> msgid ".
 <message>
 {text}
 </message>
-<dictionary>
-{dictionary}
-</dictionary>
 "#
         );
         //eprintln!("{message_text}");
