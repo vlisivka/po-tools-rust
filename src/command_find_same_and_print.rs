@@ -1,11 +1,14 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
+            println!(
+                "{}",
+                tr!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
+            )
         }
 
         [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
@@ -18,7 +21,7 @@ pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             }
 
             for file_to_diff in files_to_diff {
-                println!("# File: {file_to_diff}\n");
+                println!("{}: {file_to_diff}\n", tr!("# File"));
 
                 let messages2 = parser.parse_messages_from_file(file_to_diff)?;
 
@@ -32,7 +35,7 @@ pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             }
         }
 
-        _ => bail!("At least two files are required."),
+        _ => bail!(tr!("At least two files are required.")),
     }
 
     Ok(())

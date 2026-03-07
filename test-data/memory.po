@@ -1,0 +1,20 @@
+msgid ""
+msgstr "Header: header data."
+
+msgid "%s new patch,"
+msgid_plural "%s new patches,"
+msgstr[0] "%s нова латка,"
+msgstr[1] "%s нові латки,"
+msgstr[2] "%s нових латок,"
+
+msgid "Fixing bugs and updating features."
+msgstr "Виправлення помилок і оновлення можливостей"
+
+msgid "No matches here."
+msgstr "Немає співпадінь"
+
+msgid "The cat is on the mat."
+msgstr "Котик на килимку"
+
+msgid "Catalogue is buggy."
+msgstr "Каталог помилковий."

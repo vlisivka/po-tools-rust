@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 /// Parser for messages in Portable Object format by GNU gettext
 pub struct Parser {
@@ -358,16 +358,41 @@ impl Parser {
         let tail = skip_spaces_and_comments(text);
 
         match tail[..] {
-      ['m', 's', 'g', 'i', 'd', ' ', ..] => Ok((Keyword::Msgid, &tail["msgid ".len()..])),
-      ['m', 's', 'g', 's', 't', 'r', ' ', ..] => Ok((Keyword::Msgstr, &tail["msgstr ".len()..])),
-      ['m', 's', 'g', 's', 't', 'r', '[', num, ']', ' ',  ..] if num.is_ascii_digit() => {
-        Ok((Keyword::MsgstrPlural(num.to_digit(10).unwrap() as u8) ,&tail["msgstr[0] ".len()..]))
-      }
-      ['m', 's', 'g', 'i', 'd', '_', 'p', 'l', 'u', 'r', 'a', 'l', ' ',  ..] => Ok((Keyword::MsgidPlural, &tail["msgid_plural ".len()..])),
-      ['m', 's', 'g', 'c', 't', 'x', 't', ' ', ..] => Ok((Keyword::Msgctxt, &tail["msgctxt ".len()..])),
-      [] => bail!("Unexpected end of text. Expected: msgid, msgstr, msgid_plural, msgstr[N]."),
-      _ => bail!("Unexpected character or keyword. Expected: msgid, msgstr, msgid_plural, msgstr[N]. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()),
-    }
+            ['m', 's', 'g', 'i', 'd', ' ', ..] => Ok((Keyword::Msgid, &tail["msgid ".len()..])),
+            ['m', 's', 'g', 's', 't', 'r', ' ', ..] => {
+                Ok((Keyword::Msgstr, &tail["msgstr ".len()..]))
+            }
+            ['m', 's', 'g', 's', 't', 'r', '[', num, ']', ' ', ..] if num.is_ascii_digit() => Ok((
+                Keyword::MsgstrPlural(num.to_digit(10).unwrap() as u8),
+                &tail["msgstr[0] ".len()..],
+            )),
+            [
+                'm',
+                's',
+                'g',
+                'i',
+                'd',
+                '_',
+                'p',
+                'l',
+                'u',
+                'r',
+                'a',
+                'l',
+                ' ',
+                ..,
+            ] => Ok((Keyword::MsgidPlural, &tail["msgid_plural ".len()..])),
+            ['m', 's', 'g', 'c', 't', 'x', 't', ' ', ..] => {
+                Ok((Keyword::Msgctxt, &tail["msgctxt ".len()..]))
+            }
+            [] => {
+                bail!("Unexpected end of text. Expected: msgid, msgstr, msgid_plural, msgstr[N].")
+            }
+            _ => bail!(
+                "Unexpected character or keyword. Expected: msgid, msgstr, msgid_plural, msgstr[N]. Text: \"{}\".",
+                tail[..20.min(tail.len())].iter().collect::<String>()
+            ),
+        }
     }
 
     fn parse_string<'a>(&self, text: &'a [char]) -> Result<(String, &'a [char])> {
@@ -375,12 +400,15 @@ impl Parser {
         let mut tail = skip_spaces(text);
 
         match tail[..] {
-      // Starting quote
-      ['"', ..] => tail = &tail[1..],
+            // Starting quote
+            ['"', ..] => tail = &tail[1..],
 
-      [] => bail!("Unexpected end of text. Expected string sequence."),
-      _ => bail!("Unexpected character at beginning of the string sequence. Expected: '\"'. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()),
-    }
+            [] => bail!("Unexpected end of text. Expected string sequence."),
+            _ => bail!(
+                "Unexpected character at beginning of the string sequence. Expected: '\"'. Text: \"{}\".",
+                tail[..20.min(tail.len())].iter().collect::<String>()
+            ),
+        }
 
         loop {
             match tail[..] {
@@ -402,13 +430,16 @@ impl Parser {
                 // Escape sequence
                 ['\\', c, ..] => {
                     match c {
-            'r' => s.push('\r'),
-            'n' => s.push('\n'),
-            't' => s.push('\t'),
-            '"' => s.push('"'),
-            '\\' => s.push('\\'),
-            _ => bail!("Unexpected escape sequence in the string sequence. Expected: \\ followed by n, t, \", or \\. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()),
-         }
+                        'r' => s.push('\r'),
+                        'n' => s.push('\n'),
+                        't' => s.push('\t'),
+                        '"' => s.push('"'),
+                        '\\' => s.push('\\'),
+                        _ => bail!(
+                            "Unexpected escape sequence in the string sequence. Expected: \\ followed by n, t, \", or \\. Text: \"{}\".",
+                            tail[..20.min(tail.len())].iter().collect::<String>()
+                        ),
+                    }
                     tail = &tail[1..];
                 }
 
@@ -459,43 +490,63 @@ impl Parser {
             tail = t;
 
             match kw {
-        // Context
-        Keyword::Msgctxt if msgctxt.is_none() && msgid.is_none() && !s.is_empty() => {
-          msgctxt = Some(s);
-          continue;
-        },
-        Keyword::Msgctxt if msgctxt.is_none() && msgid.is_none() && s.is_empty() => bail!("Empty context. Expected: non-empty msgctxt \"\"."),
-        Keyword::Msgctxt if msgctxt.is_some() => bail!("Second msgctxt after first one. Expected: single msgctxt."),
-        Keyword::Msgctxt if msgid.is_some() => bail!("msgctxt after msgid. Expected: msctxt before msgid."),
+                // Context
+                Keyword::Msgctxt if msgctxt.is_none() && msgid.is_none() && !s.is_empty() => {
+                    msgctxt = Some(s);
+                    continue;
+                }
+                Keyword::Msgctxt if msgctxt.is_none() && msgid.is_none() && s.is_empty() => {
+                    bail!("Empty context. Expected: non-empty msgctxt \"\".")
+                }
+                Keyword::Msgctxt if msgctxt.is_some() => {
+                    bail!("Second msgctxt after first one. Expected: single msgctxt.")
+                }
+                Keyword::Msgctxt if msgid.is_some() => {
+                    bail!("msgctxt after msgid. Expected: msctxt before msgid.")
+                }
 
+                // Header
+                Keyword::Msgid if msgid.is_none() && s.is_empty() => {
+                    let (kw, tail) = self
+                        .parse_keyword(tail)
+                        .context("Expected msgstr \"...\" after empty msgid (AKA header).")?;
+                    let (s, tail) = self
+                        .parse_string(tail)
+                        .context("Expected msgstr \"...\" after empty msgid (AKA header).")?;
+                    let tail = skip_spaces_and_comments(tail);
 
-        // Header
-        Keyword::Msgid if msgid.is_none() && s.is_empty() => {
-          let (kw, tail) = self.parse_keyword(tail).context("Expected msgstr \"...\" after empty msgid (AKA header).")?;
-          let (s, tail) = self.parse_string(tail).context("Expected msgstr \"...\" after empty msgid (AKA header).")?;
-          let tail = skip_spaces_and_comments(tail);
+                    match kw {
+                        // Header text
+                        Keyword::Msgstr if !s.is_empty() && tail.is_empty() => {
+                            return Ok(PoMessage::Header { msgstr: s });
+                        }
 
-          match kw {
-            // Header text
-            Keyword::Msgstr if !s.is_empty() && tail.is_empty() => {
-              return Ok(PoMessage::Header { msgstr: s });
-            },
+                        Keyword::Msgstr if s.is_empty() && tail.is_empty() => bail!(
+                            "Expected non-empty string after msgstr in header. Actual string length: 0."
+                        ),
+                        Keyword::Msgstr if !s.is_empty() && tail.is_empty() => bail!(
+                            "Garbage after msgstr in header Text: \"{}\".",
+                            tail[..20.min(tail.len())].iter().collect::<String>()
+                        ),
+                        _ => bail!(
+                            "Unexpected keyword after empty msgid (AKA header). Expected: msgstr. Actual keyword: {}.",
+                            kw
+                        ),
+                    }
+                }
 
-            Keyword::Msgstr if s.is_empty() && tail.is_empty() => bail!("Expected non-empty string after msgstr in header. Actual string length: 0."),
-            Keyword::Msgstr if !s.is_empty() && tail.is_empty() => bail!("Garbage after msgstr in header Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()),
-            _ => bail!("Unexpected keyword after empty msgid (AKA header). Expected: msgstr. Actual keyword: {}.", kw),
-          }
-        },
+                // Msgid
+                Keyword::Msgid if msgid.is_none() => {
+                    msgid = Some(s);
+                    break;
+                }
 
-        // Msgid
-        Keyword::Msgid if msgid.is_none() => {
-          msgid = Some(s);
-          break;
-        },
-
-        // Something else instead of msgctxt or msgid
-        _ => bail!("Unexpected keyword at beginning of the gettext PO message. Expected: msgid field with optional msgctxt before msgid. Actual keyword: {}.", kw),
-      }
+                // Something else instead of msgctxt or msgid
+                _ => bail!(
+                    "Unexpected keyword at beginning of the gettext PO message. Expected: msgid field with optional msgctxt before msgid. Actual keyword: {}.",
+                    kw
+                ),
+            }
         }
 
         let (kw, tail) = self
@@ -506,27 +557,33 @@ impl Parser {
             .context("Expected msgstr \"...\" or msgid_plural \"...\" after msgid.")?;
 
         match kw {
-      // End of regular message
-      Keyword::Msgstr => {
-        let tail = skip_spaces_and_comments(tail);
-        // FIXME: add option to ignore garbage after end of msgstr:
-        //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()); }
+            // End of regular message
+            Keyword::Msgstr => {
+                let _tail = skip_spaces_and_comments(tail);
+                // FIXME: add option to ignore garbage after end of msgstr:
+                //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()); }
 
-        match msgctxt {
-          None => Ok(PoMessage::Regular { msgid: msgid.unwrap(), msgstr: s }),
-          Some(msgctxt) => Ok(PoMessage::RegularWithContext { msgid: msgid.unwrap(), msgstr: s, msgctxt }),
-        }
-      }
+                match msgctxt {
+                    None => Ok(PoMessage::Regular {
+                        msgid: msgid.unwrap(),
+                        msgstr: s,
+                    }),
+                    Some(msgctxt) => Ok(PoMessage::RegularWithContext {
+                        msgid: msgid.unwrap(),
+                        msgstr: s,
+                        msgctxt,
+                    }),
+                }
+            }
 
-      // Plural message
-      Keyword::MsgidPlural => {
-        let msgid_plural = s;
-        let mut msgstr: Vec<String> = Vec::new();
+            // Plural message
+            Keyword::MsgidPlural => {
+                let msgid_plural = s;
+                let mut msgstr: Vec<String> = Vec::new();
 
-        let mut tail = tail;
-        while !tail.is_empty() {
-
-          match self.parse_keyword(tail) {
+                let mut tail = tail;
+                while !tail.is_empty() {
+                    match self.parse_keyword(tail) {
             // Plural msgstr[N]
             Ok((Keyword::MsgstrPlural(n), t)) if msgstr.len() == n as usize => {
               let (s, t) = self.parse_string(t)?;
@@ -538,28 +595,45 @@ impl Parser {
             Err(e) => return Err(e.context("Expected msgstr[N] \"...\" after msgid_plural \"...\" or msgstr[N] \"...\".")),
             Ok((kw,_)) => bail!("Unexpected keyword after msgid_plural. Expected: msgstr[N]. Actual keyword: {}.", kw),
           }
-        }
+                }
 
-        if let Some(number_of_plural_cases) = self.number_of_plural_cases {
-          if msgstr.len() < number_of_plural_cases {
-            for _ in 0..number_of_plural_cases-msgstr.len() {
-              msgstr.push(String::new());
+                if let Some(number_of_plural_cases) = self.number_of_plural_cases {
+                    if msgstr.len() < number_of_plural_cases {
+                        for _ in 0..number_of_plural_cases - msgstr.len() {
+                            msgstr.push(String::new());
+                        }
+                    }
+                    msgstr.truncate(number_of_plural_cases);
+                }
+
+                let tail = skip_spaces_and_comments(tail);
+                if !tail.is_empty() {
+                    bail!(
+                        "Garbage after msgstr[N]. Text: \"{}\".",
+                        tail[..20.min(tail.len())].iter().collect::<String>()
+                    );
+                }
+
+                match msgctxt {
+                    None => Ok(PoMessage::Plural {
+                        msgid: msgid.unwrap(),
+                        msgid_plural,
+                        msgstr,
+                    }),
+                    Some(msgctxt) => Ok(PoMessage::PluralWithContext {
+                        msgid: msgid.unwrap(),
+                        msgid_plural,
+                        msgstr,
+                        msgctxt,
+                    }),
+                }
             }
-          }
-          msgstr.truncate(number_of_plural_cases);
+
+            kw => bail!(
+                "Unexpected keyword after msgid. Expected: msgid_plural, msgstr. Actual keyword: {}.",
+                kw
+            ),
         }
-
-        let tail = skip_spaces_and_comments(tail);
-        if !tail.is_empty() { bail!("Garbage after msgstr[N]. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()); }
-
-        match msgctxt {
-          None => Ok(PoMessage::Plural { msgid: msgid.unwrap(), msgid_plural, msgstr}),
-          Some(msgctxt) => Ok(PoMessage::PluralWithContext { msgid: msgid.unwrap(), msgid_plural, msgstr, msgctxt }),
-        }
-      },
-
-      kw => bail!("Unexpected keyword after msgid. Expected: msgid_plural, msgstr. Actual keyword: {}.", kw),
-    }
     }
 
     pub fn parse_messages_from_stream(
@@ -587,8 +661,18 @@ impl Parser {
                 buf += line;
             }
         }
+        if !buf.is_empty() {
+            let message = self.parse_message_from_str(&buf).context(format!(
+                "Cannot parse message at end of stream. Message:\n\n{buf}"
+            ))?;
+            messages.push(message);
+        }
 
         Ok(messages)
+    }
+
+    pub fn parse_messages_from_str(&self, s: &str) -> Result<Vec<PoMessage>> {
+        self.parse_messages_from_stream(s.as_bytes())
     }
 
     pub fn parse_messages_from_file(&self, file: &str) -> Result<Vec<PoMessage>> {

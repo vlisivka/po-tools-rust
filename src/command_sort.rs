@@ -1,5 +1,5 @@
 use crate::parser::Parser;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn command_sort_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
@@ -13,12 +13,14 @@ pub fn command_sort_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
             messages.iter().for_each(|m| println!("{m}"));
         }
 
-        _ => bail!("Single argument is required: PO file to sort. See --help."),
+        _ => bail!(tr!(
+            "Single argument is required: PO file to sort. See --help."
+        )),
     }
 
     Ok(())
 }
 
 fn help() {
-    println!("Usage: po-tools sort FILE");
+    println!("{}", tr!("Usage: po-tools sort FILE"));
 }

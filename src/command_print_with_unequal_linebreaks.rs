@@ -1,15 +1,18 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     use PoMessage::*;
 
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("Usage: po-tools with-unequal-linebreaks FILE[...]")
+            println!(
+                "{}",
+                tr!("Usage: po-tools with-unequal-linebreaks FILE[...]")
+            )
         }
 
-        files if files.is_empty() => {
+        files if !files.is_empty() => {
             for file in files {
                 let messages = parser.parse_messages_from_file(file)?;
 
@@ -39,7 +42,7 @@ pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) 
             }
         }
 
-        _ => bail!("At least one file is expected."),
+        _ => bail!(tr!("At least one file is expected.")),
     }
 
     Ok(())

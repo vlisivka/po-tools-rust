@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
     use std::io::Write;
@@ -23,7 +23,9 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
         bail!(
-            "Command \"{command}\" failed with non-zero exit code. Command args: {:?}",
+            "{} {:?}",
+            tr!("Command \"{}\" failed with non-zero exit code. Command args:")
+                .replace("{}", command),
             args
         )
     }

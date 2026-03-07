@@ -1,6 +1,6 @@
 use crate::parser::{Parser, PoMessage};
 use crate::util::pipe_to_command;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     let mut model = "ollama:gemma3n:latest";

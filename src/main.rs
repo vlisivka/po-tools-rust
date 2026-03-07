@@ -1,7 +1,10 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 mod parser;
 use crate::parser::Parser;
+
+#[macro_use]
+mod localization;
 
 mod command_sort;
 use crate::command_sort::command_sort_and_print;
@@ -66,11 +69,16 @@ use crate::command_filter_with_ai_and_print::command_filter_with_ai_and_print;
 
 mod util;
 
+mod dictionary;
+
 fn main() -> Result<()> {
+    // Initial localization call
+    localization::load_translations(&Parser::new(None));
+
     // Options
     let mut number_of_plural_cases: Option<usize> = None;
 
-    // Parse aruments
+    // Parse arguments
     let args = std::env::args().collect::<Vec<String>>();
     let tail = &args[1..].iter().map(|s| s as &str).collect::<Vec<&str>>();
     let mut tail = &tail[..];
@@ -84,7 +92,11 @@ fn main() -> Result<()> {
             number_of_plural_cases = Some(n);
             tail = &tail[2..];
           }
-          _ => bail!("Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{n}\"."),
+          _ => bail!(
+            "{}",
+            tr!("Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{}\".")
+              .replace("{}", n)
+          ),
         }
       }
 
@@ -96,7 +108,10 @@ fn main() -> Result<()> {
         tail = &tail[1..];
         break;
       }
-      [ arg, ..] if arg.starts_with('-') => bail!("Unknown option: \"{arg}\". Use --help for list of options."),
+      [ arg, ..] if arg.starts_with('-') => bail!(
+        "{}",
+        tr!("Unknown option: \"{}\". Use --help for list of options.").replace("{}", arg)
+      ),
       _ => break,
     }
     }
@@ -141,7 +156,10 @@ fn main() -> Result<()> {
         // TODO: multiline/singleline
         // TODO: check: spelling
         ["help", ..] | [] => help(),
-        [arg, ..] => bail!("Unknown command: \"{arg}\". Use --help for list of commands."),
+        [arg, ..] => bail!(
+            "{}",
+            tr!("Unknown command: \"{}\". Use --help for list of commands.").replace("{}", arg)
+        ),
     }
 
     Ok(())
@@ -149,42 +167,43 @@ fn main() -> Result<()> {
 
 fn help() {
     println!(
-        r#"
-Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] [COMMAND_ARGUMENTS]
+        "{}",
+        tr!(
+            r#"Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] [COMMAND_ARGUMENTS]
 
 COMMANDS
 
-  * translate [OPTIONS] FILE - WIP! translate PO file using AI.
-  * filter [OPTIONS] FILE - WIP! review messages.
-  * review [OPTIONS] FILE [FILE...] - WIP! review multiple translations of _same_ file using AI.
-  * compare FILE1 FILE[...] - list different variants of translation for the same file.
+  * translate [OPTIONS] FILE - WIP! Translate PO file using AI.
+  * filter [OPTIONS] FILE - WIP! Filter messages using AI.
+  * review [OPTIONS] FILE [FILE...] - WIP! Review multiple translations of _same_ file using AI.
+  * compare FILE1 FILE[...] - List different variants of translation for the same file.
 
-  * merge FILE1 FILE2 - merge two files by overwritting messages from FILE1 by messages from FILE2.
+  * merge FILE1 FILE2 - Merge two files by overwriting messages from FILE1 with messages from FILE2.
 
-  * erase FILE[...] - erase translations of messages
+  * erase FILE[...] - Erase translations of messages.
 
-  * diff FILE1 FILE2 - diff two files by msgid.
-  * diffstr FILE1 FILE2 - diff two files by msgstr.
-  * added FILE1 FILE2 - print new messages in FILE2 only.
-  * deleted FILE1 FILE2 - print missing messages from FILE1 only.
+  * diff FILE1 FILE2 - Diff two files by msgid.
+  * diffstr FILE1 FILE2 - Diff two files by msgstr.
+  * added FILE1 FILE2 - Print new messages from FILE2 only.
+  * deleted FILE1 FILE2 - Print missing messages from FILE1 only.
 
-  * translated FILE - print messages with non-empty msgstr.
-  * untranslated FILE - print messages with empty msgstr (even if just one msgstr is empty for plural messages).
-  * regular FILE - print regular PO messages, not ones with context or plural messages.
-  * plural FILE - print plural messages only.
-  * with-context FILE - print messages with msgctxt field.
-  * with-word WORD FILE - print messages with given word in msgid.
-  * with-wordstr WORD FILE - print messages with given word in msgstr.
-  * with-unequal-linebreaks - print messages where msgstr doesn't contain same number of linebreaks as msgid.
-  * check-symbols - print messages where special symbols are not same
+  * translated FILE - Print messages with non-empty msgstr.
+  * untranslated FILE - Print messages with empty msgstr (even if just one msgstr is empty for plural messages).
+  * regular FILE - Print regular PO messages, excluding ones with context or plural messages.
+  * plural FILE - Print plural messages only.
+  * with-context FILE - Print messages with msgctxt field.
+  * with-word WORD FILE - Print messages with given word in msgid.
+  * with-wordstr WORD FILE - Print messages with given word in msgstr.
+  * with-unequal-linebreaks - Print messages where msgstr does not contain same number of linebreaks as msgid.
+  * check-symbols - Print messages where special symbols are not same.
 
-  * sort FILE - sort messages in lexical order.
-  * parse - parse file and dump (for debugging)
+  * sort FILE - Sort messages in lexical order.
+  * parse - Parse file and dump (for debugging).
 
 OPTIONS
 
-  -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has less than PLURAL_CASES, then empty ones will be added.
-
+  -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has fewer than PLURAL_CASES, then empty ones will be added.
 "#
+        )
     );
 }

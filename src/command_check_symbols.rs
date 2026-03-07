@@ -1,5 +1,5 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 fn strip_non_symbols(s: &str) -> String {
     s.chars()
@@ -17,7 +17,7 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
             let msgid_syms = strip_non_symbols(msgid);
             let msgstr_syms = strip_non_symbols(msgstr);
             if msgid_syms != msgstr_syms {
-                return Some(format!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n"));
+                return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
             }
         }
 
@@ -27,7 +27,7 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
             for msgstr in msgstr {
                 let msgstr_syms = strip_non_symbols(msgstr);
                 if msgid_syms != msgstr_syms {
-                    return Some(format!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n"));
+                    return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
                 }
             }
         }
@@ -60,7 +60,7 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
             }
         }
 
-        _ => bail!("At least one file is expected."),
+        _ => bail!(tr!("At least one file is expected.")),
     }
 
     Ok(())
@@ -68,11 +68,11 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
 fn help() {
     println!(
-        r#"
-Usage: po-tools check-symbols FILE[...]
+        "{}",
+        tr!(r#"Usage: po-tools check-symbols FILE[...]
 
-Remove all alphanumeric symbols, whitespace, and commas, then compare resulting strings.
-"#
+Remove all alphanumeric characters, whitespace, and commas, then compare resulting strings.
+"#)
     );
 }
 

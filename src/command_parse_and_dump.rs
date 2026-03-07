@@ -1,5 +1,5 @@
 use crate::parser::Parser;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     let mut multiline = false;
@@ -21,14 +21,18 @@ pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
                 break;
             }
             [arg, ..] if arg.starts_with('-') => {
-                bail!("Unknown option: \"{arg}\". Use --help for list of options.")
+                bail!(
+                    "{}",
+                    tr!("Unknown option: \"{}\". Use --help for list of options.")
+                        .replace("{}", arg)
+                )
             }
             _ => break,
         }
     }
 
     if cmdline.is_empty() {
-        bail!("Expected one argument only: name of the file to parse and dump. Actual list of arguments: {:?}", cmdline);
+        bail!("{}", tr!("Expected one argument only: name of the file to parse and dump. Actual arguments list: {}").replace("{}", &format!("{:?}", cmdline)));
     }
 
     for file in cmdline {
@@ -45,11 +49,10 @@ pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
 fn help_parse() {
     println!(
-        r#"
-Usage: po-tools [OPTIONS] [--] parse [OPTIONS] FILE
+        "{}",
+        tr!(r#"Usage: po-tools [OPTIONS] [--] parse [OPTIONS] FILE
 
 Parse a PO file and dump to standard output for debugging.
-
-"#
+"#)
     );
 }

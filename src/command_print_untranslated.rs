@@ -1,12 +1,12 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     use PoMessage::*;
 
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
+            println!("{}", tr!("Usage: po-tools untranslated FILE[...]"))
         }
 
         files if !files.is_empty() => {
@@ -33,7 +33,7 @@ pub fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<(
             }
         }
 
-        _ => bail!("At least one file is expected."),
+        _ => bail!(tr!("At least one file is expected.")),
     }
 
     Ok(())

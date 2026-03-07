@@ -1,0 +1,383 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-07 12:06+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ./../src/command_sort.rs:16 ./../src/command_sort.rs:16
+msgid "Single argument is required: PO file to sort. See --help."
+msgstr ""
+
+#: ./../src/command_sort.rs:23 ./../src/command_sort.rs:23
+msgid "Usage: po-tools sort FILE"
+msgstr ""
+
+#: ./../src/command_parse_and_dump.rs:24 ./../src/command_translate_and_print.rs:68 ./../src/command_translate_and_print.rs:455 ./../src/main.rs:113 ./../src/command_parse_and_dump.rs:24 ./../src/command_translate_and_print.rs:68 ./../src/command_translate_and_print.rs:455
+msgid "Unknown option: \"{}\". Use --help for list of options."
+msgstr ""
+
+#: ./../src/command_parse_and_dump.rs:31 ./../src/command_parse_and_dump.rs:31
+msgid "Expected one argument only: name of the file to parse and dump. Actual arguments list: {}"
+msgstr ""
+
+#: ./../src/command_parse_and_dump.rs:49 ./../src/command_parse_and_dump.rs:49
+msgid "Usage: po-tools [OPTIONS] [--] parse [OPTIONS] FILE\n"
+"\n"
+"Parse a PO file and dump to standard output for debugging.\n"
+""
+msgstr ""
+
+#: ./../src/command_merge_and_print.rs:8 ./../src/command_merge_and_print.rs:8
+msgid "Usage: po-tools merge FILE1 FILE2[...]"
+msgstr ""
+
+#: ./../src/command_merge_and_print.rs:34 ./../src/command_print_added.rs:33 ./../src/command_find_same_and_print.rs:35 ./../src/command_merge_and_print.rs:34 ./../src/command_print_added.rs:33 ./../src/command_find_same_and_print.rs:35
+msgid "At least two files are required."
+msgstr ""
+
+#: ./../src/command_print_added.rs:8 ./../src/command_print_added.rs:8
+msgid "Usage: po-tools added ORIG_FILE FILE_TO_COMPARE[...]"
+msgstr ""
+
+#: ./../src/command_print_added.rs:21 ./../src/command_find_same_and_print.rs:21 ./../src/command_diff_by_str_and_print.rs:74 ./../src/command_print_added.rs:21 ./../src/command_find_same_and_print.rs:21 ./../src/command_diff_by_str_and_print.rs:74
+msgid "# File"
+msgstr ""
+
+#: ./../src/command_print_added.rs:45 ./../src/command_print_added.rs:45
+msgid "# Added messages"
+msgstr ""
+
+#: ./../src/command_print_added.rs:48 ./../src/command_print_added.rs:48
+msgid "# Removed messages"
+msgstr ""
+
+#: ./../src/command_find_same_and_print.rs:8 ./../src/command_find_same_and_print.rs:8
+msgid "Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:13 ./../src/command_diff_by_str_and_print.rs:13
+msgid "# Original header:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:13 ./../src/command_diff_by_str_and_print.rs:13
+msgid "# New header:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:16 ./../src/command_diff_by_str_and_print.rs:16
+msgid "Unexpected kind of PO message for comparison. Expected: header message. Got:"
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:26 ./../src/command_diff_by_str_and_print.rs:30 ./../src/command_diff_by_str_and_print.rs:41 ./../src/command_diff_by_str_and_print.rs:43 ./../src/command_diff_by_str_and_print.rs:45 ./../src/command_diff_by_str_and_print.rs:49 ./../src/command_diff_by_str_and_print.rs:26 ./../src/command_diff_by_str_and_print.rs:30 ./../src/command_diff_by_str_and_print.rs:41 ./../src/command_diff_by_str_and_print.rs:43 ./../src/command_diff_by_str_and_print.rs:45 ./../src/command_diff_by_str_and_print.rs:49
+msgid "# Original message:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:26 ./../src/command_diff_by_str_and_print.rs:45 ./../src/command_diff_by_str_and_print.rs:26 ./../src/command_diff_by_str_and_print.rs:45
+msgid "# New translation:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:30 ./../src/command_diff_by_str_and_print.rs:49 ./../src/command_diff_by_str_and_print.rs:30 ./../src/command_diff_by_str_and_print.rs:49
+msgid "# New message:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:41 ./../src/command_diff_by_str_and_print.rs:41
+msgid "# New plural cases:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:43 ./../src/command_diff_by_str_and_print.rs:43
+msgid "# Removed plural cases:\n"
+""
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:61 ./../src/command_diff_by_str_and_print.rs:61
+msgid "Usage: po-tools diffstr FILE FILE[S...]"
+msgstr ""
+
+#: ./../src/command_diff_by_str_and_print.rs:87 ./../src/command_diff_by_str_and_print.rs:87
+msgid "at least two files are expected."
+msgstr ""
+
+#: ./../src/command_print_translated.rs:9 ./../src/command_print_translated.rs:9
+msgid "Usage: po-tools translated FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_translated.rs:37 ./../src/command_print_untranslated.rs:36 ./../src/command_print_regular.rs:23 ./../src/command_print_plural.rs:23 ./../src/command_print_with_context.rs:25 ./../src/command_print_with_word.rs:47 ./../src/command_print_with_wordstr.rs:38 ./../src/command_print_with_unequal_linebreaks.rs:42 ./../src/command_check_symbols.rs:63 ./../src/command_print_translated.rs:37 ./../src/command_print_untranslated.rs:36 ./../src/command_print_regular.rs:23 ./../src/command_print_plural.rs:23 ./../src/command_print_with_context.rs:25 ./../src/command_print_with_word.rs:47 ./../src/command_print_with_wordstr.rs:38 ./../src/command_print_with_unequal_linebreaks.rs:42 ./../src/command_check_symbols.rs:63
+msgid "At least one file is expected."
+msgstr ""
+
+#: ./../src/command_print_untranslated.rs:9 ./../src/command_print_untranslated.rs:9
+msgid "Usage: po-tools untranslated FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_regular.rs:8 ./../src/command_print_regular.rs:8
+msgid "Usage: po-tools regular FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_plural.rs:8 ./../src/command_print_plural.rs:8
+msgid "Usage: po-tools plural FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_with_context.rs:8 ./../src/command_print_with_context.rs:8
+msgid "Usage: po-tools with-context FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_with_word.rs:8 ./../src/command_print_with_word.rs:8
+msgid "Usage: po-tools with-word KEYWORD FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_with_wordstr.rs:8 ./../src/command_print_with_wordstr.rs:8
+msgid "Usage: po-tools with-wordstr KEYWORD FILE[...]"
+msgstr ""
+
+#: ./../src/command_print_with_unequal_linebreaks.rs:9 ./../src/command_print_with_unequal_linebreaks.rs:9
+msgid "Usage: po-tools with-unequal-linebreaks FILE[...]"
+msgstr ""
+
+#: ./../src/command_compare_files_and_print.rs:8 ./../src/command_compare_files_and_print.rs:8
+msgid "At least two files are required to compare."
+msgstr ""
+
+#: ./../src/command_compare_files_and_print.rs:31 ./../src/command_translate_and_print.rs:506 ./../src/command_compare_files_and_print.rs:31 ./../src/command_translate_and_print.rs:506
+msgid "# Variant 1"
+msgstr ""
+
+#: ./../src/command_compare_files_and_print.rs:40 ./../src/command_compare_files_and_print.rs:40
+msgid "To compare, msgid's must be same in all files. In message #{}, \"{}\" != \"{}\"."
+msgstr ""
+
+#: ./../src/command_compare_files_and_print.rs:46 ./../src/command_translate_and_print.rs:521 ./../src/command_compare_files_and_print.rs:46 ./../src/command_translate_and_print.rs:521
+msgid "# Variant {}"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:75 ./../src/command_erase_and_print.rs:6 ./../src/command_erase_and_print.rs:6 ./../src/command_translate_and_print.rs:75
+msgid "Expected at least one argument: the name of the file to translate."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:83 ./../src/command_translate_and_print.rs:83
+msgid "Cannot open file \"{}\" with translation memory."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:86 ./../src/command_translate_and_print.rs:86
+msgid "Loaded {} messages from \"{}\" file with translation memory."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:98 ./../src/command_translate_and_print.rs:98
+msgid "Cannot open dictionary file \"{}\"."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:101 ./../src/command_translate_and_print.rs:101
+msgid "Loaded dictionary from {} file ({} entries)."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:111 ./../src/command_translate_and_print.rs:111
+msgid "Cannot open file \"{}\" for translation."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:114 ./../src/command_translate_and_print.rs:114
+msgid "Processing file {}, found {} messages"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:193 ./../src/command_translate_and_print.rs:193
+msgid "# Fuzzy matches from translation memory"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:279 ./../src/command_translate_and_print.rs:279
+msgid "# Translated message"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:282 ./../src/command_translate_and_print.rs:282
+msgid "# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:283 ./../src/command_translate_and_print.rs:283
+msgid "Raw translation text"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:287 ./../src/command_translate_and_print.rs:287
+msgid "# Translated message (WARNING: wrong id after translation)"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:462 ./../src/command_translate_and_print.rs:462
+msgid "Expected at least one argument: the name of the file to review."
+msgstr ""
+
+#. All messages are same, skip review
+#: ./../src/command_translate_and_print.rs:502 ./../src/command_translate_and_print.rs:502
+msgid "# All translations are same"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:515 ./../src/command_translate_and_print.rs:515
+msgid "To review, msgid's must be same in all files. In message #{}, \"{}\" != \"{}\"."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:572 ./../src/command_translate_and_print.rs:572
+msgid "# Reviewed message"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:575 ./../src/command_translate_and_print.rs:575
+msgid "# ERROR: Wrong msgid field when trying to review"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:576 ./../src/command_translate_and_print.rs:576
+msgid "Review"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:578 ./../src/command_translate_and_print.rs:578
+msgid "# Reviewed message (warning:wrong id after review)"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:583 ./../src/command_translate_and_print.rs:583
+msgid "# ERROR: Cannot parse review of message"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:583 ./../src/command_translate_and_print.rs:583
+msgid "Review text"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:584 ./../src/command_translate_and_print.rs:584
+msgid "#UNReviewed message (cannot parse review)"
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:595 ./../src/command_translate_and_print.rs:595
+msgid "Usage: po-tools [GLOBAL_OPTIONS] translate [OPTIONS] [--] FILE\n"
+"\n"
+"WORK IN PROGRESS.\n"
+"\n"
+"Translate messages in PO file using AI tools (aichat, ollama).\n"
+"\n"
+"OPTIONS:\n"
+"\n"
+"  -l | --language LANG  Language to use. Default value: \"Ukrainian\".\n"
+"\n"
+"  -m | --model MODEL    AI model to use with aichat. Default value: \"ollama:phi4:14b-q8_0\".\n"
+"                        Additional models: \"aya-expanse:32b-q3_K_S\", \"codestral:22b-v0.1-q5_K_S\".\n"
+"\n"
+"  -r | --role ROLE      AI role to use with aichat.  Default value: \"translate-po\".\n"
+"                        For better reproducibility, set temperature and top_p to 0, to remove randomness.\n"
+"\n"
+"  -R | --rag RAG        aichat RAG to use.\n"
+"\n"
+"  --tm FILE             Local Translation Memory file (PO format) to use for fuzzy matching.\n"
+"\n"
+"  -d | --dictionary FILE  TSV dictionary file to use for context. Can be used multiple times.\n"
+"\n"
+"  --debug               Print inputs and outputs of AI models to stderr.\n"
+""
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:625 ./../src/command_translate_and_print.rs:625
+msgid "Usage: po-tools [GLOBAL_OPTIONS] review [OPTIONS] [--] FILE1 [FILE2...]\n"
+"\n"
+"WORK IN PROGRESS.\n"
+"\n"
+"Review multiple different translations of same messages and select the bese one among them using AI tools (aichat, ollama).\n"
+"\n"
+"OPTIONS:\n"
+"\n"
+"  -l | --language LANG  Language to use. Default value: \"Ukrainian\".\n"
+"\n"
+"  -m | --model MODEL    AI model to use with aichat. Default value: \"ollama:phi4:14b-q8_0\".\n"
+"                        Additional models: \"aya-expanse:32b-q3_K_S\", \"codestral:22b-v0.1-q5_K_S\".\n"
+"\n"
+"  -r | --role ROLE      AI role to use with aichat.  Default value: \"translate-po\".\n"
+"                        For better reproducibility, set temperature and top_p to 0, to remove randomness.\n"
+""
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:653 ./../src/command_translate_and_print.rs:653
+msgid "Message is not translated."
+msgstr ""
+
+#: ./../src/command_translate_and_print.rs:660 ./../src/command_translate_and_print.rs:660
+msgid "Message is not translated fully."
+msgstr ""
+
+#: ./../src/command_check_symbols.rs:20 ./../src/command_check_symbols.rs:30 ./../src/command_check_symbols.rs:20 ./../src/command_check_symbols.rs:30
+msgid "# Warning: Incorrect symbols:\n"
+"# msgid:  {msgid_syms}\n"
+"# msgstr: {msgstr_syms}\n"
+""
+msgstr ""
+
+#: ./../src/command_check_symbols.rs:72 ./../src/command_check_symbols.rs:72
+msgid "Usage: po-tools check-symbols FILE[...]\n"
+"\n"
+"Remove all alphanumeric characters, whitespace, and commas, then compare resulting strings.\n"
+""
+msgstr ""
+
+#: ./../src/util.rs:27 ./../src/util.rs:27
+msgid "Command \"{}\" failed with non-zero exit code. Command args:"
+msgstr ""
+
+#: ./../src/dictionary.rs:21 ./../src/dictionary.rs:21
+msgid "Failed to open dictionary file"
+msgstr ""
+
+#: ./../src/dictionary.rs:43 ./../src/dictionary.rs:43
+msgid "WARNING: Invalid dictionary entry at line {}: missing tab separator. Line:"
+msgstr ""
+
+#: ./../src/main.rs:97
+msgid "Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{}\"."
+msgstr ""
+
+#: ./../src/main.rs:161
+msgid "Unknown command: \"{}\". Use --help for list of commands."
+msgstr ""
+
+#: ./../src/main.rs:172
+msgid "Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] [COMMAND_ARGUMENTS]\n"
+"\n"
+"COMMANDS\n"
+"\n"
+"  * translate [OPTIONS] FILE - WIP! Translate PO file using AI.\n"
+"  * filter [OPTIONS] FILE - WIP! Filter messages using AI.\n"
+"  * review [OPTIONS] FILE [FILE...] - WIP! Review multiple translations of _same_ file using AI.\n"
+"  * compare FILE1 FILE[...] - List different variants of translation for the same file.\n"
+"\n"
+"  * merge FILE1 FILE2 - Merge two files by overwriting messages from FILE1 with messages from FILE2.\n"
+"\n"
+"  * erase FILE[...] - Erase translations of messages.\n"
+"\n"
+"  * diff FILE1 FILE2 - Diff two files by msgid.\n"
+"  * diffstr FILE1 FILE2 - Diff two files by msgstr.\n"
+"  * added FILE1 FILE2 - Print new messages from FILE2 only.\n"
+"  * deleted FILE1 FILE2 - Print missing messages from FILE1 only.\n"
+"\n"
+"  * translated FILE - Print messages with non-empty msgstr.\n"
+"  * untranslated FILE - Print messages with empty msgstr (even if just one msgstr is empty for plural messages).\n"
+"  * regular FILE - Print regular PO messages, excluding ones with context or plural messages.\n"
+"  * plural FILE - Print plural messages only.\n"
+"  * with-context FILE - Print messages with msgctxt field.\n"
+"  * with-word WORD FILE - Print messages with given word in msgid.\n"
+"  * with-wordstr WORD FILE - Print messages with given word in msgstr.\n"
+"  * with-unequal-linebreaks - Print messages where msgstr does not contain same number of linebreaks as msgid.\n"
+"  * check-symbols - Print messages where special symbols are not same.\n"
+"\n"
+"  * sort FILE - Sort messages in lexical order.\n"
+"  * parse - Parse file and dump (for debugging).\n"
+"\n"
+"OPTIONS\n"
+"\n"
+"  -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has fewer than PLURAL_CASES, then empty ones will be added.\n"
+""
+msgstr ""

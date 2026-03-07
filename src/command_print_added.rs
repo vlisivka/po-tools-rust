@@ -1,11 +1,14 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 pub fn command_print_added(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
+            println!(
+                "{}",
+                tr!("Usage: po-tools added ORIG_FILE FILE_TO_COMPARE[...]")
+            )
         }
 
         [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
@@ -18,7 +21,7 @@ pub fn command_print_added(parser: &Parser, cmdline: &[&str]) -> Result<()> {
             }
 
             for file_to_diff in files_to_diff {
-                println!("# File: {file_to_diff}\n");
+                println!("{}: {file_to_diff}\n", tr!("# File"));
 
                 let messages2 = parser.parse_messages_from_file(file_to_diff)?;
 
@@ -30,7 +33,7 @@ pub fn command_print_added(parser: &Parser, cmdline: &[&str]) -> Result<()> {
             }
         }
 
-        _ => bail!("Two files at least are required."),
+        _ => bail!(tr!("At least two files are required.")),
     }
 
     Ok(())
@@ -42,10 +45,10 @@ pub fn command_print_removed(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 }
 
 pub fn command_diff_by_id_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    println!("# Added messages\n");
+    println!("{}:\n", tr!("# Added messages"));
     command_print_added(parser, cmdline)?;
 
-    println!("# Removed messages\n");
+    println!("{}:\n", tr!("# Removed messages"));
     command_print_removed(parser, cmdline)?;
 
     Ok(())

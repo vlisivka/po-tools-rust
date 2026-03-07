@@ -1,0 +1,545 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: po-tools 0.1.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-07 12:06+0000\n"
+"PO-Revision-Date: 2026-03-07 13:58+0200\n"
+"Last-Translator: Antigravity\n"
+"Language-Team: Ukrainian\n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#: ../src/command_sort.rs:16
+msgid "Single argument is required: PO file to sort. See --help."
+msgstr "Потрібен один аргумент: PO файл для сортування. Дивіться --help."
+
+#: ../src/command_sort.rs:23
+msgid "Usage: po-tools sort FILE"
+msgstr "Використання: po-tools sort ФАЙЛ"
+
+#: ../src/command_parse_and_dump.rs:24 ../src/command_translate_and_print.rs:68
+#: ../src/command_translate_and_print.rs:455 ../src/main.rs:113
+msgid "Unknown option: \"{}\". Use --help for list of options."
+msgstr "Невідома опція: \"{}\". Використовуйте --help для списку опцій."
+
+#: ../src/command_parse_and_dump.rs:31
+msgid ""
+"Expected one argument only: name of the file to parse and dump. Actual "
+"arguments list: {}"
+msgstr ""
+"Очікувався лише один аргумент: ім'я файлу для парсингу та дампу. Поточний "
+"список аргументів: {}"
+
+#: ../src/command_parse_and_dump.rs:49
+msgid ""
+"Usage: po-tools [OPTIONS] [--] parse [OPTIONS] FILE\n"
+"\n"
+"Parse a PO file and dump to standard output for debugging.\n"
+msgstr ""
+"Використання: po-tools [ОПЦІЇ] [--] parse [ОПЦІЇ] ФАЙЛ\n"
+"\n"
+"Парсинг PO файлу та вивід у стандартний потік для налагодження.\n"
+
+#: ../src/command_merge_and_print.rs:8
+msgid "Usage: po-tools merge FILE1 FILE2[...]"
+msgstr "Використання: po-tools merge ФАЙЛ1 ФАЙЛ2[...]"
+
+#: ../src/command_merge_and_print.rs:34 ../src/command_print_added.rs:33
+#: ../src/command_find_same_and_print.rs:35
+msgid "At least two files are required."
+msgstr "Потрібно щонайменше два файли."
+
+#: ../src/command_print_added.rs:8
+msgid "Usage: po-tools added ORIG_FILE FILE_TO_COMPARE[...]"
+msgstr "Використання: po-tools added ОРИГ_ФАЙЛ ФАЙЛ_ДЛЯ_ПОРІВНЯННЯ[...]"
+
+#: ../src/command_print_added.rs:21 ../src/command_find_same_and_print.rs:21
+#: ../src/command_diff_by_str_and_print.rs:74
+msgid "# File"
+msgstr "# Файл"
+
+#: ../src/command_print_added.rs:45
+msgid "# Added messages"
+msgstr "# Додані повідомлення"
+
+#: ../src/command_print_added.rs:48
+msgid "# Removed messages"
+msgstr "# Видалені повідомлення"
+
+#: ../src/command_find_same_and_print.rs:8
+msgid "Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]"
+msgstr "Використання: po-tools same ОРИГ_ФАЙЛ ФАЙЛ_ДЛЯ_ПОРІВНЯННЯ[...]"
+
+#: ../src/command_diff_by_str_and_print.rs:13
+msgid "# Original header:\n"
+msgstr "# Оригінальний заголовок:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:13
+msgid "# New header:\n"
+msgstr "# Новий заголовок:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:16
+msgid ""
+"Unexpected kind of PO message for comparison. Expected: header message. Got:"
+msgstr ""
+"Неочікуваний тип PO повідомлення для порівняння. Очікувався: заголовок. "
+"Отримано:"
+
+#: ../src/command_diff_by_str_and_print.rs:26
+#: ../src/command_diff_by_str_and_print.rs:30
+#: ../src/command_diff_by_str_and_print.rs:41
+#: ../src/command_diff_by_str_and_print.rs:43
+#: ../src/command_diff_by_str_and_print.rs:45
+#: ../src/command_diff_by_str_and_print.rs:49
+msgid "# Original message:\n"
+msgstr "# Оригінальне повідомлення:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:26
+#: ../src/command_diff_by_str_and_print.rs:45
+msgid "# New translation:\n"
+msgstr "# Новий переклад:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:30
+#: ../src/command_diff_by_str_and_print.rs:49
+msgid "# New message:\n"
+msgstr "# Нове повідомлення:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:41
+msgid "# New plural cases:\n"
+msgstr "# Нові форми множини:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:43
+msgid "# Removed plural cases:\n"
+msgstr "# Видалені форми множини:\n"
+
+#: ../src/command_diff_by_str_and_print.rs:61
+msgid "Usage: po-tools diffstr FILE FILE[S...]"
+msgstr "Використання: po-tools diffstr ФАЙЛ ФАЙЛ[И...]"
+
+#: ../src/command_diff_by_str_and_print.rs:87
+msgid "at least two files are expected."
+msgstr "очікується щонайменше два файли."
+
+#: ../src/command_print_translated.rs:9
+msgid "Usage: po-tools translated FILE[...]"
+msgstr "Використання: po-tools translated ФАЙЛ[...]"
+
+#: ../src/command_print_translated.rs:37
+#: ../src/command_print_untranslated.rs:36 ../src/command_print_regular.rs:23
+#: ../src/command_print_plural.rs:23 ../src/command_print_with_context.rs:25
+#: ../src/command_print_with_word.rs:47 ../src/command_print_with_wordstr.rs:38
+#: ../src/command_print_with_unequal_linebreaks.rs:42
+#: ../src/command_check_symbols.rs:63
+msgid "At least one file is expected."
+msgstr "Очікується щонайменше один файл."
+
+#: ../src/command_print_untranslated.rs:9
+msgid "Usage: po-tools untranslated FILE[...]"
+msgstr "Використання: po-tools untranslated ФАЙЛ[...]"
+
+#: ../src/command_print_regular.rs:8
+msgid "Usage: po-tools regular FILE[...]"
+msgstr "Використання: po-tools regular ФАЙЛ[...]"
+
+#: ../src/command_print_plural.rs:8
+msgid "Usage: po-tools plural FILE[...]"
+msgstr "Використання: po-tools plural ФАЙЛ[...]"
+
+#: ../src/command_print_with_context.rs:8
+msgid "Usage: po-tools with-context FILE[...]"
+msgstr "Використання: po-tools with-context ФАЙЛ[...]"
+
+#: ../src/command_print_with_word.rs:8
+msgid "Usage: po-tools with-word KEYWORD FILE[...]"
+msgstr "Використання: po-tools with-word КЛЮЧОВЕ_СЛОВО ФАЙЛ[...]"
+
+#: ../src/command_print_with_wordstr.rs:8
+msgid "Usage: po-tools with-wordstr KEYWORD FILE[...]"
+msgstr "Використання: po-tools with-wordstr КЛЮЧОВЕ_СЛОВО ФАЙЛ[...]"
+
+#: ../src/command_print_with_unequal_linebreaks.rs:9
+msgid "Usage: po-tools with-unequal-linebreaks FILE[...]"
+msgstr "Використання: po-tools with-unequal-linebreaks ФАЙЛ[...]"
+
+#: ../src/command_compare_files_and_print.rs:8
+msgid "At least two files are required to compare."
+msgstr "Потрібно як мінімум два файли для порівняння."
+
+#: ../src/command_compare_files_and_print.rs:31
+#: ../src/command_translate_and_print.rs:506
+msgid "# Variant 1"
+msgstr "# Варіант 1"
+
+#: ../src/command_compare_files_and_print.rs:40
+msgid ""
+"To compare, msgid's must be same in all files. In message #{}, \"{}\" != \"{}"
+"\"."
+msgstr ""
+"Для порівняння msgid мають бути однаковими у всіх файлах. У повідомленні №"
+"{}, \"{}\" != \"{}\"."
+
+#: ../src/command_compare_files_and_print.rs:46
+#: ../src/command_translate_and_print.rs:521
+msgid "# Variant {}"
+msgstr "# Варіант {}"
+
+#: ../src/command_translate_and_print.rs:75 ../src/command_erase_and_print.rs:6
+msgid "Expected at least one argument: the name of the file to translate."
+msgstr "Очікувався принаймні один аргумент: ім'я файлу для перекладу."
+
+#: ../src/command_translate_and_print.rs:83
+msgid "Cannot open file \"{}\" with translation memory."
+msgstr "Не вдалося відкрити файл \"{}\" з пам'яттю перекладів."
+
+#: ../src/command_translate_and_print.rs:86
+msgid "Loaded {} messages from \"{}\" file with translation memory."
+msgstr "Завантажено {} повідомлень з файлу \"{}\" з пам'яттю перекладів."
+
+#: ../src/command_translate_and_print.rs:98
+msgid "Cannot open dictionary file \"{}\"."
+msgstr "Не вдалося відкрити файл словника \"{}\"."
+
+#: ../src/command_translate_and_print.rs:101
+msgid "Loaded dictionary from {} file ({} entries)."
+msgstr "Завантажено словник з файлу {} ({} записів)."
+
+#: ../src/command_translate_and_print.rs:111
+msgid "Cannot open file \"{}\" for translation."
+msgstr "Не вдалося відкрити файл \"{}\" для перекладу."
+
+#: ../src/command_translate_and_print.rs:114
+msgid "Processing file {}, found {} messages"
+msgstr "Обробка файлу {}, знайдено {} повідомлень"
+
+#: ../src/command_translate_and_print.rs:193
+msgid "# Fuzzy matches from translation memory"
+msgstr "# Неточні збіги з пам'яті перекладів"
+
+#: ../src/command_translate_and_print.rs:279
+msgid "# Translated message"
+msgstr "# Перекладене повідомлення"
+
+#: ../src/command_translate_and_print.rs:282
+msgid ""
+"# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID "
+"with correct id"
+msgstr ""
+"# ПОПЕРЕДЖЕННЯ: Неправильне поле msgid при спробі перекладу. Заміна "
+"неправильного ID на правильний"
+
+#: ../src/command_translate_and_print.rs:283
+msgid "Raw translation text"
+msgstr "Сирий текст перекладу"
+
+#: ../src/command_translate_and_print.rs:287
+msgid "# Translated message (WARNING: wrong id after translation)"
+msgstr ""
+"# Перекладене повідомлення (ПОПЕРЕДЖЕННЯ: неправильний id після перекладу)"
+
+#: ../src/command_translate_and_print.rs:462
+msgid "Expected at least one argument: the name of the file to review."
+msgstr "Очікувався принаймні один аргумент: ім'я файлу для рецензування."
+
+#. All messages are same, skip review
+#: ../src/command_translate_and_print.rs:502
+msgid "# All translations are same"
+msgstr "# Усі переклади однакові"
+
+#: ../src/command_translate_and_print.rs:515
+msgid ""
+"To review, msgid's must be same in all files. In message #{}, \"{}\" != \"{}"
+"\"."
+msgstr ""
+"Для рецензування msgid мають бути однаковими у всіх файлах. У повідомленні №"
+"{}, \"{}\" != \"{}\"."
+
+#: ../src/command_translate_and_print.rs:572
+msgid "# Reviewed message"
+msgstr "# Рецензоване повідомлення"
+
+#: ../src/command_translate_and_print.rs:575
+msgid "# ERROR: Wrong msgid field when trying to review"
+msgstr "# ПОМИЛКА: Неправильне поле msgid при спробі рецензування"
+
+#: ../src/command_translate_and_print.rs:576
+msgid "Review"
+msgstr "Рецензія"
+
+#: ../src/command_translate_and_print.rs:578
+msgid "# Reviewed message (warning:wrong id after review)"
+msgstr ""
+"# Рецензоване повідомлення (попередження: неправильний id після рецензування)"
+
+#: ../src/command_translate_and_print.rs:583
+msgid "# ERROR: Cannot parse review of message"
+msgstr "# ПОМИЛКА: Не вдалося розпарсити рецензію повідомлення"
+
+#: ../src/command_translate_and_print.rs:583
+msgid "Review text"
+msgstr "Текст рецензії"
+
+#: ../src/command_translate_and_print.rs:584
+msgid "#UNReviewed message (cannot parse review)"
+msgstr "#НЕрецензоване повідомлення (не вдалося розпарсити рецензію)"
+
+#: ../src/command_translate_and_print.rs:595
+msgid ""
+"Usage: po-tools [GLOBAL_OPTIONS] translate [OPTIONS] [--] FILE\n"
+"\n"
+"WORK IN PROGRESS.\n"
+"\n"
+"Translate messages in PO file using AI tools (aichat, ollama).\n"
+"\n"
+"OPTIONS:\n"
+"\n"
+"  -l | --language LANG  Language to use. Default value: \"Ukrainian\".\n"
+"\n"
+"  -m | --model MODEL    AI model to use with aichat. Default value: "
+"\"ollama:phi4:14b-q8_0\".\n"
+"                        Additional models: \"aya-expanse:32b-q3_K_S\", "
+"\"codestral:22b-v0.1-q5_K_S\".\n"
+"\n"
+"  -r | --role ROLE      AI role to use with aichat.  Default value: "
+"\"translate-po\".\n"
+"                        For better reproducibility, set temperature and "
+"top_p to 0, to remove randomness.\n"
+"\n"
+"  -R | --rag RAG        aichat RAG to use.\n"
+"\n"
+"  --tm FILE             Local Translation Memory file (PO format) to use for "
+"fuzzy matching.\n"
+"\n"
+"  -d | --dictionary FILE  TSV dictionary file to use for context. Can be "
+"used multiple times.\n"
+"\n"
+"  --debug               Print inputs and outputs of AI models to stderr.\n"
+msgstr ""
+"Використання: po-tools [ГЛОБАЛЬНІ_ОПЦІЇ] translate [ОПЦІЇ] [--] ФАЙЛ\n"
+"\n"
+"В РОЗРОБЦІ.\n"
+"\n"
+"Переклад повідомлень у PO файлі за допомогою інструментів ШІ (aichat, "
+"ollama).\n"
+"\n"
+"ОПЦІЇ:\n"
+"\n"
+"  -l | --language LANG  Мова для перекладу. Значення за замовчуванням: "
+"\"Ukrainian\".\n"
+"\n"
+"  -m | --model MODEL    Модель ШІ для використання з aichat. За "
+"замовчуванням: \"ollama:phi4:14b-q8_0\".\n"
+"                        Додаткові моделі: \"aya-expanse:32b-q3_K_S\", "
+"\"codestral:22b-v0.1-q5_K_S\".\n"
+"\n"
+"  -r | --role ROLE      Роль ШІ для використання з aichat. За замовчуванням: "
+"\"translate-po\".\n"
+"                        Для кращої відтворюваності встановіть temperature та "
+"top_p у 0.\n"
+"\n"
+"  -R | --rag RAG        RAG для aichat.\n"
+"\n"
+"  --tm ФАЙЛ             Локальний файл пам'яті перекладів (формат PO) для "
+"неточного пошуку.\n"
+"\n"
+"  -d | --dictionary ФАЙЛ Словник TSV для контексту. Можна використовувати "
+"кілька разів.\n"
+"\n"
+"  --debug               Виводити вхідні та вихідні дані моделей ШІ у "
+"stderr.\n"
+
+#: ../src/command_translate_and_print.rs:625
+msgid ""
+"Usage: po-tools [GLOBAL_OPTIONS] review [OPTIONS] [--] FILE1 [FILE2...]\n"
+"\n"
+"WORK IN PROGRESS.\n"
+"\n"
+"Review multiple different translations of same messages and select the bese "
+"one among them using AI tools (aichat, ollama).\n"
+"\n"
+"OPTIONS:\n"
+"\n"
+"  -l | --language LANG  Language to use. Default value: \"Ukrainian\".\n"
+"\n"
+"  -m | --model MODEL    AI model to use with aichat. Default value: "
+"\"ollama:phi4:14b-q8_0\".\n"
+"                        Additional models: \"aya-expanse:32b-q3_K_S\", "
+"\"codestral:22b-v0.1-q5_K_S\".\n"
+"\n"
+"  -r | --role ROLE      AI role to use with aichat.  Default value: "
+"\"translate-po\".\n"
+"                        For better reproducibility, set temperature and "
+"top_p to 0, to remove randomness.\n"
+msgstr ""
+"Використання: po-tools [ГЛОБАЛЬНІ_ОПЦІЇ] review [ОПЦІЇ] [--] ФАЙЛ1 "
+"[ФАЙЛ2...]\n"
+"\n"
+"В РОЗРОБЦІ.\n"
+"\n"
+"Рецензування декількох варіантів перекладу однакових повідомлень та вибір "
+"найкращого за допомогою інструментів ШІ (aichat, ollama).\n"
+"\n"
+"ОПЦІЇ:\n"
+"\n"
+"  -l | --language LANG  Мова для перекладу. Значення за замовчуванням: "
+"\"Ukrainian\".\n"
+"\n"
+"  -m | --model MODEL    Модель ШІ для використання з aichat. За "
+"замовчуванням: \"ollama:phi4:14b-q8_0\".\n"
+"                        Додаткові моделі: \"aya-expanse:32b-q3_K_S\", "
+"\"codestral:22b-v0.1-q5_K_S\".\n"
+"\n"
+"  -r | --role ROLE      Роль ШІ для використання з aichat. За замовчуванням: "
+"\"translate-po\".\n"
+"                        Для кращої відтворюваності встановіть temperature та "
+"top_p у 0.\n"
+
+#: ../src/command_translate_and_print.rs:653
+msgid "Message is not translated."
+msgstr "Повідомлення не перекладене."
+
+#: ../src/command_translate_and_print.rs:660
+msgid "Message is not translated fully."
+msgstr "Повідомлення не перекладене повністю."
+
+#: ../src/command_check_symbols.rs:20 ../src/command_check_symbols.rs:30
+msgid ""
+"# Warning: Incorrect symbols:\n"
+"# msgid:  {msgid_syms}\n"
+"# msgstr: {msgstr_syms}\n"
+msgstr ""
+"# Попередження: Неправильні символи:\n"
+"# msgid:  {msgid_syms}\n"
+"# msgstr: {msgstr_syms}\n"
+
+#: ../src/command_check_symbols.rs:72
+msgid ""
+"Usage: po-tools check-symbols FILE[...]\n"
+"\n"
+"Remove all alphanumeric characters, whitespace, and commas, then compare "
+"resulting strings.\n"
+msgstr ""
+"Використання: po-tools check-symbols ФАЙЛ[...]\n"
+"\n"
+"Видалення всіх буквено-цифрових символів, пробілів та ком, після чого "
+"порівняння отриманих рядків.\n"
+
+#: ../src/util.rs:27
+msgid "Command \"{}\" failed with non-zero exit code. Command args:"
+msgstr ""
+"Команда \"{}\" завершилася з ненульовим кодом помилки. Аргументи команди:"
+
+#: ../src/dictionary.rs:21
+msgid "Failed to open dictionary file"
+msgstr "Не вдалося відкрити файл словника"
+
+#: ../src/dictionary.rs:43
+msgid ""
+"WARNING: Invalid dictionary entry at line {}: missing tab separator. Line:"
+msgstr ""
+"ПОПЕРЕДЖЕННЯ: Неправильний запис у словнику в рядку {}: відсутній роздільник "
+"табуляція. Рядок:"
+
+#: ../src/main.rs:97
+msgid ""
+"Invalid argument for -c | --cases option. Expected: number of plural cases "
+"between 1 and 9. Actual value: \"{}\"."
+msgstr ""
+"Неправильний аргумент для опції -c | --cases. Очікується: кількість форм "
+"множини від 1 до 9. Поточне значення: \"{}\"."
+
+#: ../src/main.rs:161
+msgid "Unknown command: \"{}\". Use --help for list of commands."
+msgstr "Невідома команда: \"{}\". Використовуйте --help для списку команд."
+
+#: ../src/main.rs:172
+msgid ""
+"Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] "
+"[COMMAND_ARGUMENTS]\n"
+"\n"
+"COMMANDS\n"
+"\n"
+"  * translate [OPTIONS] FILE - WIP! Translate PO file using AI.\n"
+"  * filter [OPTIONS] FILE - WIP! Filter messages using AI.\n"
+"  * review [OPTIONS] FILE [FILE...] - WIP! Review multiple translations of "
+"_same_ file using AI.\n"
+"  * compare FILE1 FILE[...] - List different variants of translation for the "
+"same file.\n"
+"\n"
+"  * merge FILE1 FILE2 - Merge two files by overwriting messages from FILE1 "
+"with messages from FILE2.\n"
+"\n"
+"  * erase FILE[...] - Erase translations of messages.\n"
+"\n"
+"  * diff FILE1 FILE2 - Diff two files by msgid.\n"
+"  * diffstr FILE1 FILE2 - Diff two files by msgstr.\n"
+"  * added FILE1 FILE2 - Print new messages from FILE2 only.\n"
+"  * deleted FILE1 FILE2 - Print missing messages from FILE1 only.\n"
+"\n"
+"  * translated FILE - Print messages with non-empty msgstr.\n"
+"  * untranslated FILE - Print messages with empty msgstr (even if just one "
+"msgstr is empty for plural messages).\n"
+"  * regular FILE - Print regular PO messages, excluding ones with context or "
+"plural messages.\n"
+"  * plural FILE - Print plural messages only.\n"
+"  * with-context FILE - Print messages with msgctxt field.\n"
+"  * with-word WORD FILE - Print messages with given word in msgid.\n"
+"  * with-wordstr WORD FILE - Print messages with given word in msgstr.\n"
+"  * with-unequal-linebreaks - Print messages where msgstr does not contain "
+"same number of linebreaks as msgid.\n"
+"  * check-symbols - Print messages where special symbols are not same.\n"
+"\n"
+"  * sort FILE - Sort messages in lexical order.\n"
+"  * parse - Parse file and dump (for debugging).\n"
+"\n"
+"OPTIONS\n"
+"\n"
+"  -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If "
+"message has fewer than PLURAL_CASES, then empty ones will be added.\n"
+msgstr ""
+"Використання: po-tools [ОПЦІЇ] [--] КОМАНДА [ОПЦІЇ_КОМАНДИ] [--] "
+"[АРГУМЕНТИ_КОМАНДИ]\n"
+"\n"
+"КОМАНДИ\n"
+"\n"
+"  * translate [ОПЦІЇ] ФАЙЛ - WIP! Переклад PO файлів за допомогою ШІ.\n"
+"  * filter [ОПЦІЇ] ФАЙЛ    - WIP! Фільтрація повідомлень за допомогою ШІ.\n"
+"  * review [ОПЦІЇ] ФАЙЛ [ФАЙЛ...] - WIP! Рецензування декількох варіантів "
+"перекладу одного файлу за допомогою ШІ.\n"
+"  * compare ФАЙЛ1 ФАЙЛ[...] - Список різних варіантів перекладу для того "
+"самого файлу.\n"
+"\n"
+"  * merge ФАЙЛ1 ФАЙЛ2 - Злиття двох файлів шляхом перезапису повідомлень з "
+"ФАЙЛ1 повідомленнями з ФАЙЛ2.\n"
+"\n"
+"  * erase ФАЙЛ[...] - Очищення перекладів повідомлень.\n"
+"\n"
+"  * diff ФАЙЛ1 ФАЙЛ2 - Порівняння двох файлів за msgid.\n"
+"  * diffstr ФАЙЛ1 ФАЙЛ2 - Порівняння двох файлів за msgstr.\n"
+"  * added ФАЙЛ1 ФАЙЛ2 - Вивід тільки нових повідомлень з ФАЙЛ2.\n"
+"  * deleted ФАЙЛ1 ФАЙЛ2 - Вивід тільки відсутніх повідомлень з ФАЙЛ1.\n"
+"\n"
+"  * translated ФАЙЛ - Вивід повідомлень із непустим msgstr.\n"
+"  * untranslated ФАЙЛ - Вивід повідомлень із пустим msgstr (навіть якщо лише "
+"одна форма множини порожня).\n"
+"  * regular ФАЙЛ - Вивід звичайних PO повідомлень, без контексту та "
+"мнозини.\n"
+"  * plural ФАЙЛ - Вивід тільки повідомлень із множиною.\n"
+"  * with-context ФАЙЛ - Вивід повідомлень із полем msgctxt.\n"
+"  * with-word СЛОВО ФАЙЛ - Вивід повідомлень із вказаним словом у msgid.\n"
+"  * with-wordstr СЛОВО ФАЙЛ - Вивід повідомлень із вказаним словом у "
+"msgstr.\n"
+"  * with-unequal-linebreaks - Вивід повідомлень, де кількість переносів "
+"рядків у msgstr не збігається з msgid.\n"
+"  * check-symbols - Вивід повідомлень, де спеціальні символи не збігаються.\n"
+"\n"
+"  * sort ФАЙЛ - Сортування повідомлень у лексичному порядку.\n"
+"  * parse - Парсинг файлу та дамп (для налагодження).\n"
+"\n"
+"ОПЦІЇ\n"
+"\n"
+"  -c | --cases КІЛЬКІСТЬ    Кількість форм множини. Якщо в повідомленні їх "
+"менше, будуть додані порожні.\n"

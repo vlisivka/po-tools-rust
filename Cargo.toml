@@ -1,8 +1,27 @@
 [package]
 name = "po-tools"
 version = "0.1.1"
-edition = "2021"
+edition = "2024"
+authors = ["Volodymyr M. Lisivka <vlisivka@gmail.com>"]
+description = "Automatic translation of Gettext PO files using AI."
+license = "GPL-3.0-or-later"
+repository = "https://github.com/vlisivka/po-tools"
 
 [dependencies]
 anyhow="1.0.83"
+regex = "1.12.2"
 strsim = "0.10"
+
+[features]
+embed-uk = []
+
+[profile.release]
+strip = true
+opt-level = 'z'
+lto = true
+codegen-units = 1
+#panic = 'abort'
+
+[profile.dev]
+opt-level = 1
+debug = 0

@@ -1,11 +1,11 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 pub fn command_merge_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
+            println!("{}", tr!("Usage: po-tools merge FILE1 FILE2[...]"))
         }
 
         [orig_file, files_to_merge @ ..] if !files_to_merge.is_empty() => {
@@ -31,7 +31,7 @@ pub fn command_merge_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> 
             vec.iter().for_each(|m| println!("{m}"));
         }
 
-        _ => bail!("Two files at least are required."),
+        _ => bail!(tr!("At least two files are required.")),
     }
 
     Ok(())

@@ -1,9 +1,11 @@
 use crate::parser::{Parser, PoMessage};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 pub fn command_erase_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     if cmdline.is_empty() {
-        bail!("Expected one argument at least: name of the file to translate.");
+        bail!(tr!(
+            "Expected at least one argument: the name of the file to translate."
+        ));
     }
 
     for file in cmdline {
