@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 
 pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
     use std::io::Write;
@@ -8,25 +8,41 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
 
-    let mut stdin = child.stdin.take().unwrap();
+    let mut stdin = child.stdin.take().expect("Failed to open stdin");
     let text = text.to_string();
-    std::thread::spawn(move || {
-        stdin
-            .write_all(text.as_bytes())
-            .expect("Cannot write to stdin");
-    });
 
-    let output = child.wait_with_output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        bail!(
-            "{} {:?}",
-            tr!("Command \"{}\" failed with non-zero exit code. Command args:")
-                .replace("{}", command),
-            args
-        )
-    }
+    let output = std::thread::scope(|s| {
+        let handle = s.spawn(move || stdin.write_all(text.as_bytes()));
+
+        let output = child.wait_with_output();
+
+        let write_res = handle
+            .join()
+            .expect("Stdin writer thread panicked")
+            .context(tr!("Failed to write to stdin of \"{}\"").replace("{}", command));
+
+        let output = output.context(tr!("Failed to wait for child process"));
+
+        match (write_res, output) {
+            (Ok(_), Ok(output)) if output.status.success() => Ok(output),
+            (write_res, Ok(output)) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let mut err_msg = tr!("Command \"{}\" failed").replace("{}", command);
+                if let Err(e) = write_res {
+                    err_msg.push_str(&format!(" ({e})"));
+                }
+                if !output.status.success() {
+                    err_msg.push_str(&format!(" with exit code {}", output.status));
+                }
+                bail!("{} {:?}\nStderr: {}", err_msg, args, stderr);
+            }
+            (Err(e), _) => Err(e),
+            (_, Err(e)) => Err(e),
+        }
+    })?;
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }

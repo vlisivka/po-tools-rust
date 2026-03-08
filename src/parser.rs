@@ -313,37 +313,43 @@ impl std::fmt::Display for Keyword {
     }
 }
 
-fn skip_spaces_and_comments(text: &[char]) -> &[char] {
+fn skip_spaces_and_comments(text: &[u8]) -> &[u8] {
     let mut tail = text;
 
     loop {
-        match tail[..] {
+        match tail {
             // Skip comment until end of line
-            ['#', ..] | ['/', '/', ..] => loop {
-                match tail[..] {
-                    ['\n', ..] | [] => break,
-                    _ => tail = &tail[1..],
+            [b'#', ..] | [b'/', b'/', ..] => loop {
+                match tail {
+                    [b'\n', ..] | [] => break,
+                    [_, rest @ ..] => tail = rest,
                 }
             },
 
             // Skip whitespace
-            [' ', ..] | ['\n', ..] => tail = &tail[1..],
-            [c, ..] if c.is_whitespace() => tail = &tail[1..],
+            [b' ', rest @ ..] | [b'\n', rest @ ..] | [b'\r', rest @ ..] | [b'\t', rest @ ..] => {
+                tail = rest
+            }
             _ => return tail,
         }
     }
 }
 
-fn skip_spaces(text: &[char]) -> &[char] {
+fn skip_spaces(text: &[u8]) -> &[u8] {
     let mut tail = text;
 
     loop {
-        match tail[..] {
-            [' ', ..] | ['\n', ..] => tail = &tail[1..],
-            [c, ..] if c.is_whitespace() => tail = &tail[1..],
+        match tail {
+            [b' ', rest @ ..] | [b'\n', rest @ ..] | [b'\r', rest @ ..] | [b'\t', rest @ ..] => {
+                tail = rest
+            }
             _ => return tail,
         }
     }
+}
+
+fn snippet(tail: &[u8], max_len: usize) -> String {
+    String::from_utf8_lossy(&tail[..max_len.min(tail.len())]).to_string()
 }
 
 impl Parser {
@@ -353,128 +359,115 @@ impl Parser {
         }
     }
 
-    fn parse_keyword<'a>(&self, text: &'a [char]) -> Result<(Keyword, &'a [char])> {
+    #[rustfmt::skip]
+    fn parse_keyword<'a>(&self, text: &'a [u8]) -> Result<(Keyword, &'a [u8])> {
         // TODO: Parse comments to support fuzzy messages
         let tail = skip_spaces_and_comments(text);
 
-        match tail[..] {
-            ['m', 's', 'g', 'i', 'd', ' ', ..] => Ok((Keyword::Msgid, &tail["msgid ".len()..])),
-            ['m', 's', 'g', 's', 't', 'r', ' ', ..] => {
-                Ok((Keyword::Msgstr, &tail["msgstr ".len()..]))
+        match tail {
+            [b'm', b's', b'g', b'i', b'd', b'_', b'p', b'l', b'u', b'r', b'a', b'l', b' ', rest @ ..] => Ok((Keyword::MsgidPlural, rest)),
+            [b'm', b's', b'g', b'i', b'd', b' ', rest @ ..] => Ok((Keyword::Msgid, rest)),
+            [b'm', b's', b'g', b's', b't', b'r', b'[', num, b']', b' ', rest @ ..] if num.is_ascii_digit() => {
+                Ok((Keyword::MsgstrPlural(num - b'0'), rest))
             }
-            ['m', 's', 'g', 's', 't', 'r', '[', num, ']', ' ', ..] if num.is_ascii_digit() => Ok((
-                Keyword::MsgstrPlural(num.to_digit(10).unwrap() as u8),
-                &tail["msgstr[0] ".len()..],
-            )),
-            [
-                'm',
-                's',
-                'g',
-                'i',
-                'd',
-                '_',
-                'p',
-                'l',
-                'u',
-                'r',
-                'a',
-                'l',
-                ' ',
-                ..,
-            ] => Ok((Keyword::MsgidPlural, &tail["msgid_plural ".len()..])),
-            ['m', 's', 'g', 'c', 't', 'x', 't', ' ', ..] => {
-                Ok((Keyword::Msgctxt, &tail["msgctxt ".len()..]))
-            }
+            [b'm', b's', b'g', b's', b't', b'r', b' ', rest @ ..] => Ok((Keyword::Msgstr, rest)),
+            [b'm', b's', b'g', b'c', b't', b'x', b't', b' ', rest @ ..] => Ok((Keyword::Msgctxt, rest)),
             [] => {
                 bail!("Unexpected end of text. Expected: msgid, msgstr, msgid_plural, msgstr[N].")
             }
             _ => bail!(
                 "Unexpected character or keyword. Expected: msgid, msgstr, msgid_plural, msgstr[N]. Text: \"{}\".",
-                tail[..20.min(tail.len())].iter().collect::<String>()
+                snippet(tail, 20)
             ),
         }
     }
 
-    fn parse_string<'a>(&self, text: &'a [char]) -> Result<(String, &'a [char])> {
-        let mut s = String::new();
+    fn parse_string<'a>(&self, text: &'a [u8]) -> Result<(String, &'a [u8])> {
+        let mut buf = Vec::new();
         let mut tail = skip_spaces(text);
 
-        match tail[..] {
+        match tail {
             // Starting quote
-            ['"', ..] => tail = &tail[1..],
+            [b'"', rest @ ..] => tail = rest,
 
             [] => bail!("Unexpected end of text. Expected string sequence."),
             _ => bail!(
                 "Unexpected character at beginning of the string sequence. Expected: '\"'. Text: \"{}\".",
-                tail[..20.min(tail.len())].iter().collect::<String>()
+                snippet(tail, 20)
             ),
         }
 
         loop {
-            match tail[..] {
-                // // String continues on next line
-                ['"', '\n', '"'] => tail = &tail[2..],
+            match tail {
+                // Ending quote of a segment
+                [b'"', rest @ ..] => {
+                    tail = skip_spaces(rest);
+                    match tail {
+                        // String continues on next line: consume the opening quote of the next segment
+                        [b'"', rest @ ..] => {
+                            tail = rest;
+                            continue;
+                        }
 
-                // Ending quote
-                ['"', ..] => {
-                    tail = skip_spaces(&tail[1..]);
-                    match tail[..] {
-                        // String continues on next line
-                        ['"', ..] => {}
-
-                        // End of string
-                        _ => return Ok((s, tail)),
+                        // End of the whole string sequence
+                        _ => {
+                            let s = String::from_utf8(buf)
+                                .context("Invalid UTF-8 in PO message string")?;
+                            return Ok((s, tail));
+                        }
                     }
                 }
 
                 // Escape sequence
-                ['\\', c, ..] => {
+                [b'\\', c, rest @ ..] => {
                     match c {
-                        'r' => s.push('\r'),
-                        'n' => s.push('\n'),
-                        't' => s.push('\t'),
-                        '"' => s.push('"'),
-                        '\\' => s.push('\\'),
+                        b'r' => buf.push(b'\r'),
+                        b'n' => buf.push(b'\n'),
+                        b't' => buf.push(b'\t'),
+                        b'"' => buf.push(b'"'),
+                        b'\\' => buf.push(b'\\'),
                         _ => bail!(
                             "Unexpected escape sequence in the string sequence. Expected: \\ followed by n, t, \", or \\. Text: \"{}\".",
-                            tail[..20.min(tail.len())].iter().collect::<String>()
+                            snippet(tail, 20)
                         ),
                     }
-                    tail = &tail[1..];
+                    tail = rest;
+                    continue;
                 }
 
-                // Raw control charactes in string
-                ['\r', ..] => {
+                // Raw control characters in string
+                [b'\r', ..] => {
                     bail!("Unterminated string sequence. Expected: '\"' at the end of line.")
                 }
-                ['\n', ..] => {
+                [b'\n', ..] => {
                     bail!("Unterminated string sequence. Expected: '\"' at the end of line.")
                 }
-                ['\t', ..] => bail!(
+                [b'\t', ..] => bail!(
                     "Raw tab character in the string sequence. Text: \"{}\".",
-                    tail[..20.min(tail.len())].iter().collect::<String>()
+                    snippet(tail, 20)
                 ),
-                [c, ..] if c.is_control() => bail!(
+                [c, rest @ ..] if c.is_ascii_control() => bail!(
                     "Raw control character in the string sequence. Text: \"{}\".",
-                    tail[..20.min(tail.len())].iter().collect::<String>()
+                    snippet(tail, 20)
                 ),
 
-                // All other characters are added to string
-                [c, ..] => s.push(c),
+                // All other bytes are added to buffer
+                [c, rest @ ..] => {
+                    buf.push(*c);
+                    tail = rest;
+                    continue;
+                }
 
                 [] => bail!("Unexpected end of text. Expected string sequence."),
             }
-
-            tail = &tail[1..];
         }
     }
 
     pub fn parse_message_from_str(&self, text: &str) -> Result<PoMessage> {
-        let text_chars = text.chars().collect::<Vec<char>>();
-        self.parse_message(&text_chars)
+        self.parse_message(text.as_bytes())
     }
 
-    pub fn parse_message(&self, text: &[char]) -> Result<PoMessage> {
+    pub fn parse_message(&self, text: &[u8]) -> Result<PoMessage> {
         let mut msgctxt: Option<String> = None;
         let mut msgid: Option<String> = None;
 
@@ -524,9 +517,9 @@ impl Parser {
                         Keyword::Msgstr if s.is_empty() && tail.is_empty() => bail!(
                             "Expected non-empty string after msgstr in header. Actual string length: 0."
                         ),
-                        Keyword::Msgstr if !s.is_empty() && tail.is_empty() => bail!(
+                        Keyword::Msgstr if !s.is_empty() && !tail.is_empty() => bail!(
                             "Garbage after msgstr in header Text: \"{}\".",
-                            tail[..20.min(tail.len())].iter().collect::<String>()
+                            snippet(tail, 20)
                         ),
                         _ => bail!(
                             "Unexpected keyword after empty msgid (AKA header). Expected: msgstr. Actual keyword: {}.",
@@ -561,7 +554,7 @@ impl Parser {
             Keyword::Msgstr => {
                 let _tail = skip_spaces_and_comments(tail);
                 // FIXME: add option to ignore garbage after end of msgstr:
-                //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", tail[..20.min(tail.len())].iter().collect::<String>()); }
+                //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", snippet(tail, 20)); }
 
                 match msgctxt {
                     None => Ok(PoMessage::Regular {
@@ -591,7 +584,7 @@ impl Parser {
               tail = t;
             },
 
-            Ok((Keyword::MsgstrPlural(n), _)) => bail!("Unexpected index of plural msgstr[N]. Expected index: {}, actual index: {}. Text: \"{}\".", msgstr.len(), n, tail[..20.min(text.len())].iter().collect::<String>()),
+            Ok((Keyword::MsgstrPlural(n), _)) => bail!("Unexpected index of plural msgstr[N]. Expected index: {}, actual index: {}. Text: \"{}\".", msgstr.len(), n, snippet(tail, 20)),
             Err(e) => return Err(e.context("Expected msgstr[N] \"...\" after msgid_plural \"...\" or msgstr[N] \"...\".")),
             Ok((kw,_)) => bail!("Unexpected keyword after msgid_plural. Expected: msgstr[N]. Actual keyword: {}.", kw),
           }
@@ -608,10 +601,7 @@ impl Parser {
 
                 let tail = skip_spaces_and_comments(tail);
                 if !tail.is_empty() {
-                    bail!(
-                        "Garbage after msgstr[N]. Text: \"{}\".",
-                        tail[..20.min(tail.len())].iter().collect::<String>()
-                    );
+                    bail!("Garbage after msgstr[N]. Text: \"{}\".", snippet(tail, 20));
                 }
 
                 match msgctxt {
@@ -700,12 +690,12 @@ msgstr \"\"
 \"Key2: value2\\n\"
 \"Key3: value3\\n\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -716,12 +706,12 @@ msgstr \"\"
 msgid  \"%d matching item\"
 msgstr \"%d відповідний елемент\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -749,12 +739,12 @@ msgstr ""
 "Мінімальна довжина паролів, які складаються з символів двох класів\n"
 "та не відповідають вимогам до парольних фраз: %s."
 "#;
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(expected, format!("{msg}"));
     }
@@ -766,12 +756,12 @@ msgctxt \"listbox\"
 msgid  \"%d matching item\"
 msgstr \"%d відповідний елемент\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -785,12 +775,12 @@ msgstr[0] \"%d відповідний елемент\"
 msgstr[1] \"%d відповідні елементи\"
 msgstr[2] \"%d відповідних елементів\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -805,12 +795,12 @@ msgstr[0] \"%d відповідний елемент\"
 msgstr[1] \"%d відповідні елементи\"
 msgstr[2] \"%d відповідних елементів\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -823,12 +813,12 @@ msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -838,12 +828,12 @@ msgstr \"\"
         let orig = r#"msgid  "Only one of -s, -g, -r, or -l allowed\n"
 msgstr "Дозволено лише одне з -s, -g, -r або -l\n"
 "#;
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(orig, format!("{msg}"));
     }
@@ -865,12 +855,12 @@ msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"
 ";
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
         let msg = parser
-            .parse_message(&chars[..])
+            .parse_message(&bytes[..])
             .expect("Message must be parsed correctly.");
         assert_eq!(expected, format!("{msg}"));
     }
@@ -883,11 +873,11 @@ msgstr \"\"
         let expected_err =
             "Unexpected end of text. Expected: msgid, msgstr, msgid_plural, msgstr[N].";
 
-        let chars: Vec<char> = orig.chars().chain("\n".chars()).collect();
+        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
         };
-        let err = parser.parse_message(&chars[..]).unwrap_err();
+        let err = parser.parse_message(&bytes[..]).unwrap_err();
         let err_root_cause = err.root_cause();
         assert_eq!(expected_err, format!("{err_root_cause}"));
     }

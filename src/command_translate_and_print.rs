@@ -186,7 +186,6 @@ fn translate_and_print(
     };
 
     for message in messages {
-        dbg!(&message);
         match message {
             // Pass header untranslated
             PoMessage::Header { .. } => {
@@ -234,8 +233,8 @@ fn translate_and_print(
                 let message_text = format!(
                     r#"
 <instruction>
-INPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verabatim copy of original msgid, while msgstr must be {language} translations.
+IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
 IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
 IMPORTANT: Prefer translations proposed by dictionary.
 You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
@@ -366,8 +365,8 @@ Produce only the {language} translation, without any additional explanations or 
                 let message_text = format!(
                     r#"
 <instruction>
-INPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verabatim copy of original msgid, while msgstr must be {language} translations.
+IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
 IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
 IMPORTANT: Prefer translations proposed by dictionary.
 You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
@@ -588,8 +587,8 @@ fn review_files_and_print(
 Act as technical translator for Gettext .po files.
 Review PO message translation variants in <message></message> tag to {language} Language. List cons for varians in <review></review> tag.
 Check for technical correctness, translation correctness, correct gender, correct plural form, correct line breaks.
-Chose variant pleased for a native speaker in {language} language.
-Wrire review in <review></review> tag first, then write one correct PO message without flaws in <message></message> tag.
+Choose the variant most pleasing for a native speaker in {language} language.
+Write review in <review></review> tag first, then write one correct PO message without flaws in <message></message> tag.
 Example:
 <review> the review </review>
 <message>
@@ -702,7 +701,7 @@ fn help_review() {
 
 WORK IN PROGRESS.
 
-Review multiple different translations of same messages and select the bese one among them using AI tools (aichat, ollama).
+Review multiple different translations of same messages and select the best one among them using AI tools (aichat, ollama).
 
 OPTIONS:
 

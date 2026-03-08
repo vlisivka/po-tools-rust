@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 pub fn command_erase_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     if cmdline.is_empty() {
         bail!(tr!(
-            "Expected at least one argument: the name of the file to translate."
+            "Expected at least one argument: the name of the file with translations to erase."
         ));
     }
 

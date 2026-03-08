@@ -42,14 +42,20 @@ pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Re
                 break;
             }
             [arg, ..] if arg.starts_with('-') => {
-                bail!("Unknown option: \"{arg}\". Use --help for list of options.")
+                bail!(
+                    "{}",
+                    tr!("Unknown option: \"{}\". Use --help for list of options.")
+                        .replace("{}", arg)
+                )
             }
             _ => break,
         }
     }
 
     if cmdline.is_empty() {
-        bail!("Expected one argument at least: name of the file to translate.");
+        bail!(tr!(
+            "Expected one argument at least: name of the file to filter."
+        ));
     }
 
     for file in cmdline {
@@ -123,12 +129,13 @@ fn filter_and_print(
 
 fn help() {
     println!(
-        r#"
-Usage: po-tools [GLOBAL_OPTIONS] review [OPTIONS] [--] FILE
+        "{}",
+        tr!(
+            r#"Usage: po-tools [GLOBAL_OPTIONS] filter [OPTIONS] [--] FILE
 
 WORK IN PROGRESS.
 
-Translate messages in PO file using AI tools (aichat, ollama).
+Filter messages in PO file using AI tools (aichat, ollama).
 
 OPTIONS:
 
@@ -139,7 +146,7 @@ OPTIONS:
                         For better reproducibility, set temperature and top_p to 0, to remove randomness.
   -y | --yes-only       Print messages with <reply>yes</reply> only.
   -n | --no-only        Print messages with <reply>no</reply> only.
-
 "#
+        )
     );
 }
