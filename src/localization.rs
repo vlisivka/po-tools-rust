@@ -13,7 +13,11 @@ static TRANSLATIONS: OnceLock<HashMap<String, String>> = OnceLock::new();
 ///
 /// It checks for `.po` files based on the `LANG` environment variable.
 pub fn load_translations(parser: &Parser) {
-    let lang = std::env::var("LANG").unwrap_or_else(|_| "C".to_string());
+    let lang = std::env::var("LANGUAGE")
+        .or_else(|_| std::env::var("LC_ALL"))
+        .or_else(|_| std::env::var("LC_MESSAGES"))
+        .or_else(|_| std::env::var("LANG"))
+        .unwrap_or_else(|_| "C".to_string());
 
     // Try: po-tools.uk_UA.po, then po-tools.uk.po, then po-tools.po
     let lang_full = lang.split('.').next().unwrap_or(&lang);

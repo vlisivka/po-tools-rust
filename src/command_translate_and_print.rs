@@ -98,7 +98,8 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             tr!("Cannot open file \"{file}\" with translation memory.").replace("{file}", tm_file)
         })?;
         eprintln!(
-            "INFO: {}",
+            "{}: {}",
+            tr!("INFO"),
             tr!("Loaded {count} messages from \"{file}\" file with translation memory.")
                 .replace("{count}", &msgs.len().to_string())
                 .replace("{file}", tm_file)
@@ -114,7 +115,8 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             tr!("Cannot open dictionary file \"{file}\".").replace("{file}", dict_file)
         })?;
         eprintln!(
-            "INFO: {}",
+            "{}: {}",
+            tr!("INFO"),
             tr!("Loaded dictionary from {file} file ({count} entries).")
                 .replace("{file}", dict_file)
                 .replace("{count}", &dict.entries.len().to_string())
@@ -127,7 +129,8 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             .parse_messages_from_file(file)
             .with_context(|| tr!("Cannot open file \"{}\" for translation.").replace("{}", file))?;
         eprintln!(
-            "INFO: {}",
+            "{}: {}",
+            tr!("INFO"),
             tr!("Processing file {}, found {} messages")
                 .replace("{}", file)
                 .replace("{}", &messages.len().to_string())
@@ -281,11 +284,13 @@ Produce only the {language} translation, without any additional explanations or 
 
     if debug {
         eprintln!(
-            "----Message to aichat-----------------------------------------------------------"
+            "----{}-----------------------------------------------------------",
+            tr!("Message to aichat")
         );
         eprintln!("{message_text}");
         eprintln!(
-            "----End of message--------------------------------------------------------------"
+            "----{}--------------------------------------------------------------",
+            tr!("End of message")
         );
     }
 
@@ -294,11 +299,13 @@ Produce only the {language} translation, without any additional explanations or 
 
     if debug {
         eprintln!(
-            "----Reply from aichat-----------------------------------------------------------"
+            "----{}-----------------------------------------------------------",
+            tr!("Reply from aichat")
         );
         eprintln!("{new_message_text}");
         eprintln!(
-            "----End of reply----------------------------------------------------------------"
+            "----{}----------------------------------------------------------------",
+            tr!("End of reply")
         );
     }
 
@@ -356,8 +363,10 @@ Produce only the {language} translation, without any additional explanations or 
 
         Err(e) => {
             eprintln!(
-                "# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====",
-                e
+                "{}: {:#}:\n{message}\n# {}:\n=====\n{new_message_text_slice}\n=====",
+                tr!("# ERROR: Cannot parse translation of message"),
+                e,
+                tr!("# Raw translation text")
             );
             println!(
                 "{}:\n#, fuzzy\n{message}",

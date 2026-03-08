@@ -297,7 +297,7 @@ bail!(tr!("Expected at least one argument: the name of the file to translate."))
 
 ## 4. Проблеми з локалізацією
 
-### 4.1. Непослідовне використання макросу `tr!()`
+### 4.1. Непослідовне використання макросу `tr!()` (Виконано)
 
 **Файли:** Множина файлів.
 
@@ -316,7 +316,7 @@ bail!(tr!("Expected at least one argument: the name of the file to translate."))
 
 ---
 
-### 4.2. Локалізація не підтримує `LANGUAGE` та `LC_MESSAGES`
+### 4.2. Локалізація не підтримує `LANGUAGE` та `LC_MESSAGES` (Виконано)
 
 **Файл:** `src/localization.rs:8`
 

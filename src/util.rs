@@ -45,7 +45,10 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
                     err_msg.push_str(&format!(" ({e})"));
                 }
                 if !output.status.success() {
-                    err_msg.push_str(&format!(" with exit code {}", output.status));
+                    err_msg.push_str(&format!(
+                        " {}",
+                        tr!("with exit code {code}").replace("{code}", &output.status.to_string())
+                    ));
                 }
                 bail!("{} {:?}\nStderr: {}", err_msg, args, stderr);
             }
