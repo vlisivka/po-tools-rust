@@ -1,163 +1,90 @@
+//! Parser and internal representation for GNU Gettext Portable Object (PO) files.
+//!
+//! This module provides the `Parser` struct for reading PO files and the `PoMessage`
+//! struct to represent individual translation entries.
+
 use anyhow::{Context, Result, bail};
 
-/// Parser for messages in Portable Object format by GNU gettext
+/// Parser for messages in Portable Object format by GNU gettext.
 pub struct Parser {
-    /// Number of plural cases in plural messages.
+    /// Expected number of plural cases (e.g., from `nplurals=N` in the header).
     pub number_of_plural_cases: Option<usize>,
 }
 
+/// Represents a single message entry in a PO file.
+///
+/// A message can be a simple id-to-string translation, have a context,
+/// or represent plural forms. It also handles the special "header" entry.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub enum PoMessage {
-    Header {
-        msgstr: String,
-    },
-    Regular {
-        msgid: String,
-        msgstr: String,
-    },
-    RegularWithContext {
-        msgid: String,
-        msgctxt: String,
-        msgstr: String,
-    },
-    Plural {
-        msgid: String,
-        msgid_plural: String,
-        msgstr: Vec<String>,
-    },
-    PluralWithContext {
-        msgid: String,
-        msgid_plural: String,
-        msgctxt: String,
-        msgstr: Vec<String>,
-    },
+pub struct PoMessage {
+    /// Optional context (`msgctxt`).
+    pub msgctxt: Option<String>,
+    /// The original message string (`msgid`).
+    pub msgid: String,
+    /// The plural form of the original message (`msgid_plural`).
+    pub msgid_plural: Option<String>,
+    /// The translated strings (`msgstr`).
+    /// - For regular messages: exactly one element.
+    /// - For plural messages: N elements (one per plural form).
+    /// - For headers: one element with header metadata.
+    pub msgstr: Vec<String>,
 }
 
 impl PoMessage {
+    /// Returns true if this is a header message (empty msgid).
+    pub fn is_header(&self) -> bool {
+        self.msgid.is_empty() && self.msgctxt.is_none()
+    }
+
+    /// Returns true if this is a plural message.
+    pub fn is_plural(&self) -> bool {
+        self.msgid_plural.is_some()
+    }
+
+    /// Returns true if this message has a context (msgctxt).
+    pub fn has_context(&self) -> bool {
+        self.msgctxt.is_some()
+    }
+
+    /// Returns true if this message is fully translated (all msgstr are non-empty).
+    pub fn is_translated(&self) -> bool {
+        !self.is_header() && self.msgstr.iter().all(|s| !s.is_empty())
+    }
+
+    /// Returns the first translated string (`msgstr[0]`), or an empty string if not present.
+    pub fn msgstr_first(&self) -> &str {
+        self.msgstr.first().map(|s| s.as_str()).unwrap_or("")
+    }
+
+    /// Creates a "key" version of the message by clearing its translations.
+    /// This is useful for looking up messages in a map where only the identity matters.
     pub fn to_key(&self) -> Self {
-        match self {
-            Self::Header { .. } => self.clone(),
-            Self::Regular { msgid, .. } => Self::Regular {
-                msgid: msgid.clone(),
-                msgstr: "".to_string(),
-            },
-            Self::RegularWithContext { msgctxt, msgid, .. } => Self::RegularWithContext {
-                msgctxt: msgctxt.clone(),
-                msgid: msgid.clone(),
-                msgstr: "".to_string(),
-            },
-            Self::Plural {
-                msgid,
-                msgid_plural,
-                ..
-            } => Self::Plural {
-                msgid: msgid.clone(),
-                msgid_plural: msgid_plural.clone(),
-                msgstr: Vec::new(),
-            },
-            Self::PluralWithContext {
-                msgctxt,
-                msgid,
-                msgid_plural,
-                ..
-            } => Self::PluralWithContext {
-                msgctxt: msgctxt.clone(),
-                msgid: msgid.clone(),
-                msgid_plural: msgid_plural.clone(),
-                msgstr: Vec::new(),
+        Self {
+            msgctxt: self.msgctxt.clone(),
+            msgid: self.msgid.clone(),
+            msgid_plural: self.msgid_plural.clone(),
+            msgstr: if self.is_header() {
+                self.msgstr.clone()
+            } else {
+                Vec::new()
             },
         }
     }
 
+    /// Combines this message's translation with another message's identity (key).
     pub fn with_key(&self, key: &Self) -> Self {
-        use PoMessage::*;
-        match (key, self) {
-            (Regular { msgid, .. }, Regular { msgstr, .. }) => Regular {
-                msgid: msgid.clone(),
-                msgstr: msgstr.clone(),
-            },
-            (RegularWithContext { msgctxt, msgid, .. }, RegularWithContext { msgstr, .. }) => {
-                RegularWithContext {
-                    msgctxt: msgctxt.clone(),
-                    msgid: msgid.clone(),
-                    msgstr: msgstr.clone(),
-                }
-            }
-
-            (
-                Plural {
-                    msgid,
-                    msgid_plural,
-                    ..
-                },
-                Plural { msgstr, .. },
-            ) => Plural {
-                msgid: msgid.clone(),
-                msgid_plural: msgid_plural.clone(),
-                msgstr: msgstr.clone(),
-            },
-            (
-                PluralWithContext {
-                    msgctxt,
-                    msgid,
-                    msgid_plural,
-                    ..
-                },
-                PluralWithContext { msgstr, .. },
-            ) => PluralWithContext {
-                msgctxt: msgctxt.clone(),
-                msgid: msgid.clone(),
-                msgid_plural: msgid_plural.clone(),
-                msgstr: msgstr.clone(),
-            },
-
-            (Regular { msgid, .. }, RegularWithContext { msgstr, .. }) => Regular {
-                msgid: msgid.clone(),
-                msgstr: msgstr.clone(),
-            },
-            (RegularWithContext { msgctxt, msgid, .. }, Regular { msgstr, .. }) => {
-                RegularWithContext {
-                    msgctxt: msgctxt.clone(),
-                    msgid: msgid.clone(),
-                    msgstr: msgstr.clone(),
-                }
-            }
-
-            (
-                Plural {
-                    msgid,
-                    msgid_plural,
-                    ..
-                },
-                PluralWithContext { msgstr, .. },
-            ) => Plural {
-                msgid: msgid.clone(),
-                msgid_plural: msgid_plural.clone(),
-                msgstr: msgstr.clone(),
-            },
-            (
-                PluralWithContext {
-                    msgctxt,
-                    msgid,
-                    msgid_plural,
-                    ..
-                },
-                Plural { msgstr, .. },
-            ) => PluralWithContext {
-                msgctxt: msgctxt.clone(),
-                msgid: msgid.clone(),
-                msgid_plural: msgid_plural.clone(),
-                msgstr: msgstr.clone(),
-            },
-
-            (Header { .. }, Header { .. }) => self.clone(),
-
-            // Something wrong, erase translation
-            _ => key.clone(),
+        Self {
+            msgctxt: key.msgctxt.clone(),
+            msgid: key.msgid.clone(),
+            msgid_plural: key.msgid_plural.clone(),
+            msgstr: self.msgstr.clone(),
         }
     }
 }
 
+/// Escapes a string for use in a PO file, handling newlines and quotes.
+///
+/// Supports multiline output strategy common in PO files.
 pub fn escape_string(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut prepend_quotes = false;
@@ -195,95 +122,53 @@ pub fn escape_string(s: &str) -> String {
 
 impl std::fmt::Display for PoMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Header { msgstr } => {
-                let msgstr = escape_string(msgstr);
-                write!(
-                    f,
-                    "\
+        // Header
+        if self.is_header() {
+            let msgstr = escape_string(self.msgstr_first());
+            return write!(
+                f,
+                "\
           msgid \"\"\n\
           msgstr \"{msgstr}\"\n\
         "
-                )
-            }
-            Self::Regular { msgid, msgstr } => {
-                let msgid = escape_string(msgid);
-                let msgstr = escape_string(msgstr);
-                write!(
-                    f,
-                    "\
-          msgid  \"{msgid}\"\n\
-          msgstr \"{msgstr}\"\n\
-        "
-                )
-            }
+            );
+        }
 
-            Self::RegularWithContext {
-                msgctxt,
-                msgid,
-                msgstr,
-            } => {
-                let msgctxt = escape_string(msgctxt);
-                let msgid = escape_string(msgid);
-                let msgstr = escape_string(msgstr);
-                write!(
-                    f,
-                    "\
-          msgctxt \"{msgctxt}\"\n\
-          msgid  \"{msgid}\"\n\
-          msgstr \"{msgstr}\"\n\
-        "
-                )
-            }
+        // Optional msgctxt
+        if let Some(ref msgctxt) = self.msgctxt {
+            let msgctxt = escape_string(msgctxt);
+            write!(f, "msgctxt \"{msgctxt}\"\n")?;
+        }
 
-            Self::Plural {
-                msgid,
-                msgid_plural,
-                msgstr,
-            } => {
-                let msgid = escape_string(msgid);
-                let msgid_plural = escape_string(msgid_plural);
-                write!(
-                    f,
-                    "\
+        let msgid = escape_string(&self.msgid);
+
+        // Plural message
+        if let Some(ref msgid_plural) = self.msgid_plural {
+            let msgid_plural = escape_string(msgid_plural);
+            write!(
+                f,
+                "\
           msgid \"{msgid}\"\n\
           msgid_plural \"{msgid_plural}\"\n\
         "
-                )?;
+            )?;
 
-                for (i, msgstr_i) in msgstr.iter().enumerate() {
-                    let msgstr_i = escape_string(msgstr_i);
-                    writeln!(f, "msgstr[{i}] \"{msgstr_i}\"")?;
-                }
-
-                Ok(())
+            for (i, msgstr_i) in self.msgstr.iter().enumerate() {
+                let msgstr_i = escape_string(msgstr_i);
+                writeln!(f, "msgstr[{i}] \"{msgstr_i}\"")?;
             }
 
-            Self::PluralWithContext {
-                msgctxt,
-                msgid,
-                msgid_plural,
-                msgstr,
-            } => {
-                let msgctxt = escape_string(msgctxt);
-                let msgid = escape_string(msgid);
-                let msgid_plural = escape_string(msgid_plural);
-                write!(
-                    f,
-                    "\
-          msgctxt \"{msgctxt}\"\n\
-          msgid \"{msgid}\"\n\
-          msgid_plural \"{msgid_plural}\"\n\
+            Ok(())
+        } else {
+            // Regular message
+            let msgstr = escape_string(self.msgstr_first());
+            write!(
+                f,
+                "\
+          msgid  \"{msgid}\"\n\
+          msgstr \"{msgstr}\"\n\
         "
-                )?;
-
-                for (i, msgstr_i) in msgstr.iter().enumerate() {
-                    let msgstr_i = escape_string(msgstr_i);
-                    writeln!(f, "msgstr[{i}] \"{msgstr_i}\"")?;
-                }
-
-                Ok(())
-            }
+            )
         }
     }
 }
@@ -353,6 +238,7 @@ fn snippet(tail: &[u8], max_len: usize) -> String {
 }
 
 impl Parser {
+    /// Creates a new `Parser` instance.
     pub fn new(number_of_plural_cases: Option<usize>) -> Self {
         Self {
             number_of_plural_cases,
@@ -463,10 +349,12 @@ impl Parser {
         }
     }
 
+    /// Parses a single message entry from a string.
     pub fn parse_message_from_str(&self, text: &str) -> Result<PoMessage> {
         self.parse_message(text.as_bytes())
     }
 
+    /// Parses a single message entry from a byte slice.
     pub fn parse_message(&self, text: &[u8]) -> Result<PoMessage> {
         let mut msgctxt: Option<String> = None;
         let mut msgid: Option<String> = None;
@@ -511,7 +399,12 @@ impl Parser {
                     match kw {
                         // Header text
                         Keyword::Msgstr if !s.is_empty() && tail.is_empty() => {
-                            return Ok(PoMessage::Header { msgstr: s });
+                            return Ok(PoMessage {
+                                msgctxt: None,
+                                msgid: String::new(),
+                                msgid_plural: None,
+                                msgstr: vec![s],
+                            });
                         }
 
                         Keyword::Msgstr if s.is_empty() && tail.is_empty() => bail!(
@@ -556,17 +449,12 @@ impl Parser {
                 // FIXME: add option to ignore garbage after end of msgstr:
                 //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", snippet(tail, 20)); }
 
-                match msgctxt {
-                    None => Ok(PoMessage::Regular {
-                        msgid: msgid.unwrap(),
-                        msgstr: s,
-                    }),
-                    Some(msgctxt) => Ok(PoMessage::RegularWithContext {
-                        msgid: msgid.unwrap(),
-                        msgstr: s,
-                        msgctxt,
-                    }),
-                }
+                Ok(PoMessage {
+                    msgctxt,
+                    msgid: msgid.unwrap(),
+                    msgid_plural: None,
+                    msgstr: vec![s],
+                })
             }
 
             // Plural message
@@ -604,19 +492,12 @@ impl Parser {
                     bail!("Garbage after msgstr[N]. Text: \"{}\".", snippet(tail, 20));
                 }
 
-                match msgctxt {
-                    None => Ok(PoMessage::Plural {
-                        msgid: msgid.unwrap(),
-                        msgid_plural,
-                        msgstr,
-                    }),
-                    Some(msgctxt) => Ok(PoMessage::PluralWithContext {
-                        msgid: msgid.unwrap(),
-                        msgid_plural,
-                        msgstr,
-                        msgctxt,
-                    }),
-                }
+                Ok(PoMessage {
+                    msgctxt,
+                    msgid: msgid.unwrap(),
+                    msgid_plural: Some(msgid_plural),
+                    msgstr,
+                })
             }
 
             kw => bail!(
@@ -626,6 +507,7 @@ impl Parser {
         }
     }
 
+    /// Parses multiple messages from a stream that implements `BufRead`.
     pub fn parse_messages_from_stream(
         &self,
         stream: impl std::io::BufRead,
@@ -661,10 +543,12 @@ impl Parser {
         Ok(messages)
     }
 
+    /// Parses multiple messages from a string.
     pub fn parse_messages_from_str(&self, s: &str) -> Result<Vec<PoMessage>> {
         self.parse_messages_from_stream(s.as_bytes())
     }
 
+    /// Parses multiple messages from a file. If path is "-", reads from stdin.
     pub fn parse_messages_from_file(&self, file: &str) -> Result<Vec<PoMessage>> {
         if file == "-" {
             self.parse_messages_from_stream(std::io::stdin().lock())

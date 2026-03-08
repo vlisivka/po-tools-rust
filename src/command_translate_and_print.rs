@@ -1,3 +1,8 @@
+//! Command to translate PO messages using AI and translation memory.
+//!
+//! This is the most complex command, involving fuzzy matching from TM,
+//! dictionary lookups, and interaction with an AI model.
+
 use crate::dictionary::Dictionary;
 use crate::parser::{Parser, PoMessage};
 use crate::util::pipe_to_command;
@@ -5,6 +10,7 @@ use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use strsim::normalized_levenshtein;
 
+/// Implementation of the `translate` command.
 pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     let mut language = "Ukrainian";
     let mut model = "ollama:translategemma:12b";
@@ -81,18 +87,21 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
         ));
     }
 
-    let aichat_options = ["-r", role, "-m", model];
-    let aichat_options_with_rag = ["-r", role, "-m", model, "--rag", rag];
+    let mut aichat_options = vec!["-r", role, "-m", model];
+    if !rag.is_empty() {
+        aichat_options.push("--rag");
+        aichat_options.push(rag);
+    }
 
     let tm_messages = if !tm_file.is_empty() {
         let msgs = parser.parse_messages_from_file(tm_file).with_context(|| {
-            tr!("Cannot open file \"{}\" with translation memory.").replace("{}", tm_file)
+            tr!("Cannot open file \"{file}\" with translation memory.").replace("{file}", tm_file)
         })?;
         eprintln!(
             "INFO: {}",
-            tr!("Loaded {} messages from \"{}\" file with translation memory.")
-                .replace("{}", &msgs.len().to_string())
-                .replace("{}", tm_file)
+            tr!("Loaded {count} messages from \"{file}\" file with translation memory.")
+                .replace("{count}", &msgs.len().to_string())
+                .replace("{file}", tm_file)
         );
         msgs
     } else {
@@ -101,13 +110,14 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
 
     let mut dictionaries = Vec::new();
     for dict_file in dictionary_files {
-        let dict = Dictionary::from_file(dict_file)
-            .with_context(|| tr!("Cannot open dictionary file \"{}\".").replace("{}", dict_file))?;
+        let dict = Dictionary::from_file(dict_file).with_context(|| {
+            tr!("Cannot open dictionary file \"{file}\".").replace("{file}", dict_file)
+        })?;
         eprintln!(
             "INFO: {}",
-            tr!("Loaded dictionary from {} file ({} entries).")
-                .replace("{}", dict_file)
-                .replace("{}", &dict.entries.len().to_string())
+            tr!("Loaded dictionary from {file} file ({count} entries).")
+                .replace("{file}", dict_file)
+                .replace("{count}", &dict.entries.len().to_string())
         );
         dictionaries.push(dict);
     }
@@ -124,11 +134,7 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
         );
         translate_and_print(
             aichat_command,
-            if rag.is_empty() {
-                &aichat_options
-            } else {
-                &aichat_options_with_rag
-            },
+            &aichat_options,
             language,
             parser.number_of_plural_cases,
             &messages,
@@ -140,27 +146,17 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
 
     Ok(())
 }
-fn get_msgid(message: &PoMessage) -> Option<&str> {
-    match message {
-        PoMessage::Regular { msgid, .. } => Some(msgid),
-        PoMessage::RegularWithContext { msgid, .. } => Some(msgid),
-        PoMessage::Plural { msgid, .. } => Some(msgid),
-        PoMessage::PluralWithContext { msgid, .. } => Some(msgid),
-        PoMessage::Header { .. } => None,
-    }
-}
 
 fn find_fuzzy_matches<'a>(message: &PoMessage, tm_messages: &'a [PoMessage]) -> Vec<&'a PoMessage> {
-    let msgid = match get_msgid(message) {
-        Some(id) => id,
-        None => return Vec::new(),
-    };
+    if message.is_header() {
+        return Vec::new();
+    }
+    let msgid = &message.msgid;
 
     let mut matches: Vec<(f64, &PoMessage)> = tm_messages
         .iter()
-        .filter_map(|tm_msg| {
-            get_msgid(tm_msg).map(|tm_msgid| (normalized_levenshtein(msgid, tm_msgid), tm_msg))
-        })
+        .filter(|tm_msg| !tm_msg.is_header())
+        .map(|tm_msg| (normalized_levenshtein(msgid, &tm_msg.msgid), tm_msg))
         .collect();
 
     // Sort by score descending
@@ -176,211 +172,77 @@ fn translate_and_print(
     aichat_options: &[&str],
     language: &str,
     number_of_plural_cases: Option<usize>,
-    messages: &Vec<PoMessage>,
-    tm_messages: &Vec<PoMessage>,
+    messages: &[PoMessage],
+    tm_messages: &[PoMessage],
     dictionaries: &[Dictionary],
     debug: bool,
 ) -> Result<()> {
-    let parser = Parser {
-        number_of_plural_cases,
+    for message in messages {
+        if message.is_header() {
+            println!("{message}");
+        } else {
+            translate_single_message(
+                message,
+                aichat_command,
+                aichat_options,
+                language,
+                number_of_plural_cases,
+                tm_messages,
+                dictionaries,
+                debug,
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+fn translate_single_message(
+    message: &PoMessage,
+    aichat_command: &str,
+    aichat_options: &[&str],
+    language: &str,
+    number_of_plural_cases: Option<usize>,
+    tm_messages: &[PoMessage],
+    dictionaries: &[Dictionary],
+    debug: bool,
+) -> Result<()> {
+    let fuzzy_matches = find_fuzzy_matches(message, tm_messages);
+    let fuzzy_match_text = if !fuzzy_matches.is_empty() {
+        let mut text = format!(
+            "<context>\n{}:\n",
+            tr!("# Fuzzy matches from translation memory")
+        );
+        for m in fuzzy_matches {
+            text.push_str(&format!("{}\n", m));
+        }
+        text.push_str("</context>");
+        text
+    } else {
+        "".to_string()
     };
 
-    for message in messages {
-        match message {
-            // Pass header untranslated
-            PoMessage::Header { .. } => {
-                println!("{message}");
-            }
+    // Find dictionary matches
+    let mut dict_context = String::new();
+    let mut seen_keys = HashSet::new();
 
-            PoMessage::Regular { .. } | PoMessage::RegularWithContext { .. } => {
-                let fuzzy_matches = find_fuzzy_matches(message, tm_messages);
-                let fuzzy_match_text = if !fuzzy_matches.is_empty() {
-                    let mut text = format!(
-                        "<context>\n{}:\n",
-                        tr!("# Fuzzy matches from translation memory")
-                    );
-                    for m in fuzzy_matches {
-                        text.push_str(&format!("{}\n", m));
-                    }
-                    text.push_str("</context>");
-                    text
-                } else {
-                    "".to_string()
-                };
-
-                // Find dictionary matches
-                let mut dict_context = String::new();
-                let mut seen_keys = HashSet::new();
-
-                if let Some(msgid) = get_msgid(message) {
-                    for dict in dictionaries {
-                        for entry in dict.find_matches(msgid) {
-                            if seen_keys.insert(&entry.key) {
-                                dict_context.push_str(&format!(
-                                    "- {} - {}\n",
-                                    entry.key, entry.translation
-                                ));
-                            }
-                        }
-                    }
-                }
-
-                if !dict_context.is_empty() {
-                    dict_context = format!("<dictionary>\n{dict_context}</dictionary>\n");
-                }
-
-                // Translation template
-                let message_text = format!(
-                    r#"
-<instruction>
-IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
-IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
-IMPORTANT: Prefer translations proposed by dictionary.
-You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
-Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
-</instruction>
-
-{dict_context}
-
-{fuzzy_match_text}
-
-<message>
-{message}
-</message>
-"#
-                );
-
-                if debug {
-                    eprintln!(
-                        "----Message to aichat-----------------------------------------------------------"
-                    );
-                    eprintln!("{message_text}");
-                    eprintln!(
-                        "----End of message--------------------------------------------------------------"
-                    );
-                }
-
-                // Translate
-                let new_message_text =
-                    pipe_to_command(aichat_command, aichat_options, &message_text)?;
-
-                if debug {
-                    eprintln!(
-                        "----Reply from aichat-----------------------------------------------------------"
-                    );
-                    eprintln!("{new_message_text}");
-                    eprintln!(
-                        "----End of reply----------------------------------------------------------------"
-                    );
-                }
-
-                // Extract text between <message> and </message>, if they are present
-                let new_message_text_slice = if let (Some(start), Some(end)) = (
-                    new_message_text.find("<message>"),
-                    new_message_text.find("</message>"),
-                ) {
-                    let tag_len = "<message>".len();
-                    &new_message_text[(start + tag_len)..end]
-                } else if let Some(start) = new_message_text.find("msgid ") {
-                    &new_message_text[start..]
-                } else {
-                    &new_message_text[..]
-                };
-
-                match parser.parse_message_from_str(new_message_text_slice) {
-                    Ok(new_message) => {
-                        if message.to_key() == new_message.to_key() {
-                            let errors = validate_message(&new_message);
-                            println!(
-                                "{}:\n#{errors}\n#, fuzzy\n{new_message}",
-                                tr!("# Translated message")
-                            );
-                        } else {
-                            eprintln!(
-                                "{}.\n# {}:\n=====\n{new_message_text_slice}\n=====",
-                                tr!(
-                                    "# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id"
-                                ),
-                                tr!("Raw translation text")
-                            );
-                            let fixed_message = new_message.with_key(&message.to_key());
-                            let errors = validate_message(&fixed_message);
-                            println!(
-                                "{}:\n#{errors}\n#, fuzzy\n{fixed_message}",
-                                tr!("# Translated message (WARNING: wrong id after translation)")
-                            );
-                        }
-                    }
-
-                    Err(e) => {
-                        eprintln!(
-                            "# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====",
-                            e
-                        );
-                        println!(
-                            "# UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}"
-                        );
-                    }
+    if !message.is_header() {
+        for dict in dictionaries {
+            for entry in dict.find_matches(&message.msgid) {
+                if seen_keys.insert(&entry.key) {
+                    dict_context.push_str(&format!("- {} - {}\n", entry.key, entry.translation));
                 }
             }
+        }
+    }
 
-            PoMessage::Plural { .. } | PoMessage::PluralWithContext { .. } => {
-                let number_of_plural_cases = number_of_plural_cases.unwrap_or(2);
-                let fuzzy_matches = find_fuzzy_matches(message, tm_messages);
-                let fuzzy_match_text = if !fuzzy_matches.is_empty() {
-                    let mut text =
-                        String::from("<context>\nFuzzy matches from translation memory:\n");
-                    for m in fuzzy_matches {
-                        text.push_str(&format!("{}\n", m));
-                    }
-                    text.push_str("</context>");
-                    text
-                } else {
-                    "".to_string()
-                };
+    if !dict_context.is_empty() {
+        dict_context = format!("<dictionary>\n{dict_context}</dictionary>\n");
+    }
 
-                // Find dictionary matches
-                let mut dict_context = String::new();
-                let mut seen_keys = HashSet::new();
-
-                if let Some(msgid) = get_msgid(message) {
-                    for dict in dictionaries {
-                        for entry in dict.find_matches(msgid) {
-                            if seen_keys.insert(&entry.key) {
-                                dict_context.push_str(&format!(
-                                    "- {} - {}\n",
-                                    entry.key, entry.translation
-                                ));
-                            }
-                        }
-                    }
-                }
-
-                if !dict_context.is_empty() {
-                    dict_context = format!("<dictionary>\n{dict_context}</dictionary>\n");
-                }
-
-                // Translation template
-                let message_text = format!(
-                    r#"
-<instruction>
-IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
-IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
-IMPORTANT: Prefer translations proposed by dictionary.
-You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
-Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
-</instruction>
-
-<message>
-{message}
-</message>
-
-{fuzzy_match_text}
-
-{dict_context}
-
+    let is_plural = message.is_plural();
+    let example = if is_plural {
+        r#"
 <example>
 msgid "%s new patch,"
 msgid_plural "%s new patches,"
@@ -389,74 +251,118 @@ msgstr[1] "%s нові латки,"
 msgstr[2] "%s нових латок,"
 </example>
 "#
+    } else {
+        ""
+    };
+
+    // Translation template
+    let message_text = format!(
+        r#"
+<instruction>
+IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
+IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
+IMPORTANT: Prefer translations proposed by dictionary.
+You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
+Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
+</instruction>
+
+{dict_context}
+
+{fuzzy_match_text}
+
+<message>
+{message}
+</message>
+
+{example}
+"#
+    );
+
+    if debug {
+        eprintln!(
+            "----Message to aichat-----------------------------------------------------------"
+        );
+        eprintln!("{message_text}");
+        eprintln!(
+            "----End of message--------------------------------------------------------------"
+        );
+    }
+
+    // Translate
+    let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
+
+    if debug {
+        eprintln!(
+            "----Reply from aichat-----------------------------------------------------------"
+        );
+        eprintln!("{new_message_text}");
+        eprintln!(
+            "----End of reply----------------------------------------------------------------"
+        );
+    }
+
+    // Extract text between <message> and </message>, if they are present
+    let new_message_text_slice = if let (Some(start), Some(end)) = (
+        new_message_text.find("<message>"),
+        new_message_text.find("</message>"),
+    ) {
+        let tag_len = "<message>".len();
+        &new_message_text[(start + tag_len)..end]
+    } else if let Some(start) = new_message_text.find("msgid ") {
+        // Fallback for non-compliant AI output
+        &new_message_text[start..]
+    } else {
+        &new_message_text[..]
+    };
+
+    let parser = Parser {
+        number_of_plural_cases: if is_plural {
+            Some(number_of_plural_cases.unwrap_or(2))
+        } else {
+            number_of_plural_cases
+        },
+    };
+
+    match parser.parse_message_from_str(new_message_text_slice) {
+        Ok(new_message) => {
+            let actual_key = message.to_key();
+            let result_key = new_message.to_key();
+
+            if actual_key == result_key {
+                let errors = validate_message(&new_message);
+                println!(
+                    "{}:\n#{errors}\n#, fuzzy\n{new_message}",
+                    tr!("# Translated message")
                 );
-                if debug {
-                    eprintln!(
-                        "----Message to aichat-----------------------------------------------------------"
-                    );
-                    eprintln!("{message_text}");
-                    eprintln!(
-                        "----End of message--------------------------------------------------------------"
-                    );
-                }
-
-                // Translate
-                let new_message_text =
-                    pipe_to_command(aichat_command, aichat_options, &message_text)?;
-
-                if debug {
-                    eprintln!(
-                        "----Reply from aichat-----------------------------------------------------------"
-                    );
-                    eprintln!("{new_message_text}");
-                    eprintln!(
-                        "----End of reply----------------------------------------------------------------"
-                    );
-                }
-
-                let parser = Parser {
-                    number_of_plural_cases: Some(number_of_plural_cases),
-                };
-
-                // Extract text between <message> and </message>, if they are present
-                let new_message_text_slice = if let (Some(start), Some(end)) = (
-                    new_message_text.find("<message>"),
-                    new_message_text.find("</message>"),
-                ) {
-                    let tag_len = "<message>".len();
-                    &new_message_text[(start + tag_len)..end]
-                } else {
-                    &new_message_text[..]
-                };
-
-                match parser.parse_message_from_str(new_message_text_slice) {
-                    Ok(new_message) => {
-                        if message.to_key() == new_message.to_key() {
-                            let errors = validate_message(&new_message);
-                            println!("# Translated message:\n#{errors}#, fuzzy\n{new_message}");
-                        } else {
-                            eprintln!(
-                                "# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id."
-                            );
-                            let fixed_message = new_message.with_key(&message.to_key());
-                            let errors = validate_message(&fixed_message);
-                            println!(
-                                "# Translated message (WARNING: wrong id after translation):\n#{errors}#, fuzzy\n{fixed_message}"
-                            );
-                        }
-                    }
-
-                    Err(e) => {
-                        eprintln!(
-                            "# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====",
-                            e
-                        );
-                        println!(
-                            "# UNTranslated message (cannot parse translation):\n#, fuzzy\n{message}"
-                        );
-                    }
-                }
+            } else {
+                eprintln!(
+                    "{}. {} = \"{}\"\n# {}:\n=====\n{new_message_text_slice}\n=====",
+                    tr!(
+                        "# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id"
+                    ),
+                    tr!("Actual key"),
+                    actual_key,
+                    tr!("Raw translation text")
+                );
+                let fixed_message = new_message.with_key(&actual_key);
+                let errors = validate_message(&fixed_message);
+                println!(
+                    "{}:\n#{errors}\n#, fuzzy\n{fixed_message}",
+                    tr!("# Translated message (WARNING: wrong id after translation)")
+                );
             }
+        }
+
+        Err(e) => {
+            eprintln!(
+                "# ERROR: Cannot parse translation of message: {:#}:\n{message}\n# Raw translation text:\n=====\n{new_message_text_slice}\n=====",
+                e
+            );
+            println!(
+                "{}:\n#, fuzzy\n{message}",
+                tr!("# UNTranslated message (cannot parse translation)")
+            );
         }
     }
 
@@ -475,27 +381,29 @@ pub fn command_review_files_and_print(parser: &Parser, cmdline: &[&str]) -> Resu
     // Parse "review" command options
     loop {
         match cmdline[..] {
-            ["-m", model_name, ..] | ["--model", model_name, ..] => {
+            ["-m", model_name, ref tail @ ..] | ["--model", model_name, ref tail @ ..] => {
                 model = model_name;
-                cmdline = &cmdline[2..];
+                cmdline = tail;
             }
 
-            ["-r", role_name, ..] | ["--role", role_name, ..] => {
+            ["-r", role_name, ref tail @ ..] | ["--role", role_name, ref tail @ ..] => {
                 role = role_name;
-                cmdline = &cmdline[2..];
+                cmdline = tail;
             }
 
-            ["-l", lang_name, ..] | ["--lang", lang_name, ..] | ["--language", lang_name, ..] => {
+            ["-l", lang_name, ref tail @ ..]
+            | ["--lang", lang_name, ref tail @ ..]
+            | ["--language", lang_name, ref tail @ ..] => {
                 language = lang_name;
-                cmdline = &cmdline[2..];
+                cmdline = tail;
             }
 
             ["-h", ..] | ["-help", ..] | ["--help", ..] => {
                 help_review();
                 return Ok(());
             }
-            ["--", ..] => {
-                cmdline = &cmdline[1..];
+            ["--", ref tail @ ..] => {
+                cmdline = tail;
                 break;
             }
             [arg, ..] if arg.starts_with('-') => {
@@ -720,26 +628,22 @@ OPTIONS:
 // FIXME: Return Option<&str> instead of String.
 // TODO: Rename to find_issues_with_translation(message).
 fn validate_message(message: &PoMessage) -> String {
-    use crate::command_check_symbols::check_symbols;
-    use crate::command_translate_and_print::PoMessage::*;
-
-    match message {
-        Regular { msgstr, .. } | RegularWithContext { msgstr, .. } => {
-            if msgstr.is_empty() {
-                return tr!("Message is not translated.").to_string();
-            }
-        }
-
-        Plural { msgstr, .. } | PluralWithContext { msgstr, .. } => {
-            for msgstr in msgstr {
-                if msgstr.is_empty() {
-                    return tr!("Message is not translated fully.").to_string();
-                }
-            }
-        }
-
-        Header { .. } => {}
+    if message.is_header() {
+        return "".into();
     }
+
+    if !message.is_plural() {
+        if message.msgstr_first().is_empty() {
+            return tr!("Message is not translated.").to_string();
+        }
+    } else {
+        for msgstr in &message.msgstr {
+            if msgstr.is_empty() {
+                return tr!("Message is not translated fully.").to_string();
+            }
+        }
+    }
+    use crate::command_check_symbols::check_symbols;
 
     match check_symbols(message) {
         None => "".into(),

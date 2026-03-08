@@ -10,7 +10,7 @@
 
 ## 1. Проблеми архітектури
 
-### 1.1. Enum `PoMessage` — комбінаторний вибух варіантів
+### 1.1. Enum `PoMessage` — комбінаторний вибух варіантів (Виконано)
 
 **Файл:** `src/parser.rs:10-34`
 
@@ -36,7 +36,7 @@ pub struct PoMessage {
 
 ---
 
-### 1.2. Відсутність трейту для доступу до полів `PoMessage`
+### 1.2. Відсутність трейту для доступу до полів `PoMessage` (Виконано)
 
 **Файл:** Множина файлів.
 
@@ -59,7 +59,7 @@ impl PoMessage {
 
 ---
 
-### 1.3. Дублювання парсингу аргументів командного рядка
+### 1.3. Дублювання парсингу аргументів командного рядка (Відхилено)
 
 **Файли:** `src/main.rs`, `src/command_translate_and_print.rs`, `src/command_filter_with_ai_and_print.rs`, `src/command_parse_and_dump.rs`
 
@@ -77,7 +77,7 @@ impl PoMessage {
 
 ## 2. Проблеми якості коду
 
-### 2.1. Масивне дублювання коду у `command_translate_and_print.rs`
+### 2.1. Масивне дублювання коду у `command_translate_and_print.rs` (Виконано)
 
 **Файл:** `src/command_translate_and_print.rs` (750 рядків — найбільший файл після `parser.rs`)
 
@@ -111,7 +111,7 @@ impl PoMessage {
 
 ---
 
-### 2.3. Неефективне використання `.replace("{}", ...)` для форматування
+### 2.3. Неефективне використання `.replace("{}", ...)` для форматування (Виконано)
 
 **Файли:** Множина файлів (`main.rs`, `command_translate_and_print.rs`, `command_compare_files_and_print.rs` тощо).
 
@@ -130,7 +130,7 @@ tr!("Loaded {} messages from \"{}\" file with translation memory.")
 
 ---
 
-### 2.4. `make_ascii_lowercase()` для Unicode-тексту
+### 2.4. `make_ascii_lowercase()` для Unicode-тексту (Виконано)
 
 **Файли:** `src/command_print_with_word.rs:19-21`, `src/command_print_with_wordstr.rs:19-21`
 
@@ -162,7 +162,7 @@ tr!("Loaded {} messages from \"{}\" file with translation memory.")
 
 ---
 
-### 2.6. Некоректна обробка помилок у `command_print_removed`
+### 2.6. Некоректна обробка помилок у `command_print_removed` (Виконано)
 
 **Файл:** `src/command_print_added.rs:42-45`
 
@@ -181,7 +181,7 @@ pub fn command_print_removed(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
 ---
 
-### 2.7. Використання `&Vec<T>` замість `&[T]`
+### 2.7. Використання `&Vec<T>` замість `&[T]` (Виконано)
 
 **Файли:** `src/command_translate_and_print.rs:179-180`, `src/command_erase_and_print.rs:19`, `src/command_filter_with_ai_and_print.rs:74`
 
@@ -193,7 +193,7 @@ pub fn command_print_removed(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
 ---
 
-### 2.8. Парсер працює через `&[char]` замість `&str`
+### 2.8. Парсер працює через `&[char]` замість `&str` (Виконано)
 
 **Файл:** `src/parser.rs`
 
@@ -228,7 +228,7 @@ pub fn command_print_removed(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
 ## 3. Проблеми документації
 
-### 3.1. Відсутність документації модулів та функцій
+### 3.1. Відсутність документації модулів та функцій (Виконано)
 
 **Проблема:** У проєкті майже повністю відсутні `///` doc-коментарі:
 - `parser.rs` — єдиний коментар на структурі `Parser` (рядок 3) та полі `number_of_plural_cases` (рядок 6). Жодна функція не документована.

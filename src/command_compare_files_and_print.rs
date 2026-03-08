@@ -1,6 +1,12 @@
+//! Command to compare translations across multiple PO files side-by-side.
+//!
+//! This module helps in identifying differences in how the same `msgid`
+//! is translated in different files.
+
 use crate::parser::{Parser, PoMessage};
 use anyhow::{Result, bail};
 
+/// Implementation of the `compare` command.
 pub fn command_compare_files_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     let skip_same = true;
 
@@ -37,15 +43,15 @@ pub fn command_compare_files_and_print(parser: &Parser, cmdline: &[&str]) -> Res
             let k2 = msgs[i].to_key();
 
             if k2 != k1 {
-                bail!("{}", tr!("To compare, msgid's must be same in all files. In message #{}, \"{}\" != \"{}\".")
-                    .replace("{}", &i.to_string())
-                    .replace("{}", &format!("{k1}"))
-                    .replace("{}", &format!("{k2}")));
+                bail!(tr!("To compare, msgid's must be same in all files. In message #{index}, \"{key1}\" != \"{key2}\".")
+                    .replace("{index}", &i.to_string())
+                    .replace("{key1}", &format!("{k1}"))
+                    .replace("{key2}", &format!("{k2}")));
             }
 
             print!(
                 "{}:\n{}",
-                tr!("# Variant {}").replace("{}", &j.to_string()),
+                tr!("# Variant {variant}").replace("{variant}", &j.to_string()),
                 msgs[i]
             );
         }

@@ -1,9 +1,10 @@
-use crate::parser::{Parser, PoMessage};
+//! Command to filter and print only regular messages (no plural, no context).
+
+use crate::parser::Parser;
 use anyhow::{Result, bail};
 
+/// Implementation of the `regular` command.
 pub fn command_print_regular(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    use PoMessage::*;
-
     match cmdline {
         ["-h", ..] | ["--help", ..] => println!("{}", tr!("Usage: po-tools regular FILE[...]")),
 
@@ -12,9 +13,8 @@ pub fn command_print_regular(parser: &Parser, cmdline: &[&str]) -> Result<()> {
                 let messages = parser.parse_messages_from_file(file)?;
 
                 for message in messages.iter() {
-                    match message {
-                        Regular { .. } | RegularWithContext { .. } => println!("{message}"),
-                        _ => {}
+                    if !message.is_header() && !message.is_plural() {
+                        println!("{message}");
                     }
                 }
             }

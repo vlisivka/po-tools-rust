@@ -1,9 +1,10 @@
-use crate::parser::{Parser, PoMessage};
+//! Command to filter and print only plural messages from a PO file.
+
+use crate::parser::Parser;
 use anyhow::{Result, bail};
 
+/// Implementation of the `plural` command.
 pub fn command_print_plural(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    use PoMessage::*;
-
     match cmdline {
         ["-h", ..] | ["--help", ..] => println!("{}", tr!("Usage: po-tools plural FILE[...]")),
 
@@ -12,9 +13,8 @@ pub fn command_print_plural(parser: &Parser, cmdline: &[&str]) -> Result<()> {
                 let messages = parser.parse_messages_from_file(file)?;
 
                 for message in messages.iter() {
-                    match message {
-                        Plural { .. } | PluralWithContext { .. } => println!("{message}"),
-                        _ => {}
+                    if message.is_plural() {
+                        println!("{message}");
                     }
                 }
             }

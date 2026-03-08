@@ -1,5 +1,13 @@
+//! Utility functions for the PO-tools project.
+//!
+//! This module contains common helper functions like executing external commands
+//! with piped input/output.
+
 use anyhow::{Context, Result, bail};
 
+/// Executes an external command, piping the given text to its stdin and capturing stdout.
+///
+/// This is used extensively for interacting with AI tools like `aichat`.
 pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<String> {
     use std::io::Write;
     use std::process::{Command, Stdio};
@@ -22,7 +30,9 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
         let write_res = handle
             .join()
             .expect("Stdin writer thread panicked")
-            .context(tr!("Failed to write to stdin of \"{}\"").replace("{}", command));
+            .context(
+                tr!("Failed to write to stdin of \"{command}\"").replace("{command}", command),
+            );
 
         let output = output.context(tr!("Failed to wait for child process"));
 
@@ -30,7 +40,7 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
             (Ok(_), Ok(output)) if output.status.success() => Ok(output),
             (write_res, Ok(output)) => {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                let mut err_msg = tr!("Command \"{}\" failed").replace("{}", command);
+                let mut err_msg = tr!("Command \"{command}\" failed").replace("{command}", command);
                 if let Err(e) = write_res {
                     err_msg.push_str(&format!(" ({e})"));
                 }

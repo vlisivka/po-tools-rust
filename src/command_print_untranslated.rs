@@ -1,9 +1,10 @@
-use crate::parser::{Parser, PoMessage};
+//! Command to filter and print only untranslated messages from a PO file.
+
+use crate::parser::Parser;
 use anyhow::{Result, bail};
 
+/// Implementation of the `untranslated` command.
 pub fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    use PoMessage::*;
-
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
             println!("{}", tr!("Usage: po-tools untranslated FILE[...]"))
@@ -14,20 +15,8 @@ pub fn command_print_untranslated(parser: &Parser, cmdline: &[&str]) -> Result<(
                 let messages = parser.parse_messages_from_file(file)?;
 
                 for message in messages.iter() {
-                    match message {
-                        Regular { msgstr, .. } | RegularWithContext { msgstr, .. }
-                            if !msgstr.is_empty() => {}
-
-                        Plural { msgstr, .. } | PluralWithContext { msgstr, .. } => {
-                            for msgstr in msgstr {
-                                if msgstr.is_empty() {
-                                    println!("{message}");
-                                    break;
-                                }
-                            }
-                        }
-
-                        _ => println!("{message}"),
+                    if !message.is_header() && !message.is_translated() {
+                        println!("{message}");
                     }
                 }
             }

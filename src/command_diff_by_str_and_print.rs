@@ -1,103 +1,81 @@
+//! Command to find differences in translations (msgstr) between two PO files.
+//!
+//! Unlike standard `diff` which compares keys (`msgid`), this command
+//! focuses on how the translations have changed for the same keys.
+
 use crate::parser::{Parser, PoMessage};
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 fn diff_by_str_and_print(m1: &PoMessage, m2: &PoMessage) -> Result<()> {
-    use PoMessage::*;
-
-    match m1 {
-        Header { msgstr: msgstr1 } => match m2 {
-            Header { msgstr: msgstr2 } => {
-                if msgstr1 != msgstr2 {
-                    println!(
-                        "{}{m1}{}{m2}",
-                        tr!("# Original header:\n"),
-                        tr!("# New header:\n")
-                    );
-                }
+    if m1.is_header() {
+        if m2.is_header() {
+            if m1.msgstr_first() != m2.msgstr_first() {
+                println!(
+                    "{}{m1}{}{m2}",
+                    tr!("# Original header:\n"),
+                    tr!("# New header:\n")
+                );
             }
-            _ => bail!(
+        } else {
+            bail!(
                 "{}.\n{m2}",
                 tr!("Unexpected kind of PO message for comparison. Expected: header message. Got:")
-            ),
-        },
-
-        Regular {
-            msgstr: msgstr1, ..
+            );
         }
-        | RegularWithContext {
-            msgstr: msgstr1, ..
-        } => match m2 {
-            Regular {
-                msgstr: msgstr2, ..
-            }
-            | RegularWithContext {
-                msgstr: msgstr2, ..
-            } => {
-                if msgstr1 != msgstr2 {
-                    println!(
-                        "{}{m1}{}{m2}",
-                        tr!("# Original message:\n"),
-                        tr!("# New translation:\n")
-                    );
-                }
-            }
-            _ => {
+        return Ok(());
+    }
+
+    if !m1.is_plural() {
+        if !m2.is_plural() {
+            if m1.msgstr_first() != m2.msgstr_first() {
                 println!(
                     "{}{m1}{}{m2}",
                     tr!("# Original message:\n"),
-                    tr!("# New message:\n")
+                    tr!("# New translation:\n")
                 );
             }
-        },
-
-        Plural {
-            msgstr: msgstr1, ..
+        } else {
+            println!(
+                "{}{m1}{}{m2}",
+                tr!("# Original message:\n"),
+                tr!("# New message:\n")
+            );
         }
-        | PluralWithContext {
-            msgstr: msgstr1, ..
-        } => match m2 {
-            Plural {
-                msgstr: msgstr2, ..
-            }
-            | PluralWithContext {
-                msgstr: msgstr2, ..
-            } => {
-                if msgstr1.len() < msgstr2.len() {
-                    println!(
-                        "{}{m1}{}{m2}",
-                        tr!("# Original message:\n"),
-                        tr!("# New plural cases:\n")
-                    );
-                } else if msgstr1.len() > msgstr2.len() {
-                    println!(
-                        "{}{m1}{}{m2}",
-                        tr!("# Original message:\n"),
-                        tr!("# Removed plural cases:\n")
-                    );
-                } else if std::iter::zip(msgstr1, msgstr2)
-                    .any(|(msgstr1, msgstr2)| msgstr1 != msgstr2)
-                {
-                    println!(
-                        "{}{m1}{}{m2}",
-                        tr!("# Original message:\n"),
-                        tr!("# New translation:\n")
-                    );
-                }
-            }
-            _ => {
+    } else {
+        if m2.is_plural() {
+            if m1.msgstr.len() < m2.msgstr.len() {
                 println!(
                     "{}{m1}{}{m2}",
                     tr!("# Original message:\n"),
-                    tr!("# New message:\n")
+                    tr!("# New plural cases:\n")
+                );
+            } else if m1.msgstr.len() > m2.msgstr.len() {
+                println!(
+                    "{}{m1}{}{m2}",
+                    tr!("# Original message:\n"),
+                    tr!("# Removed plural cases:\n")
+                );
+            } else if std::iter::zip(&m1.msgstr, &m2.msgstr).any(|(s1, s2)| s1 != s2) {
+                println!(
+                    "{}{m1}{}{m2}",
+                    tr!("# Original message:\n"),
+                    tr!("# New translation:\n")
                 );
             }
-        },
+        } else {
+            println!(
+                "{}{m1}{}{m2}",
+                tr!("# Original message:\n"),
+                tr!("# New message:\n")
+            );
+        }
     }
 
     Ok(())
 }
 
+/// Implementation of the `diffstr` command.
 pub fn command_diff_by_str_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {

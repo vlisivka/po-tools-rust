@@ -1,7 +1,13 @@
+//! Commands to find added or removed messages between two PO files.
+//!
+//! `added` finds messages in the second file not present in the first.
+//! `removed` finds messages in the first file not present in the second.
+
 use crate::parser::{Parser, PoMessage};
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 
+/// Implementation of the `added` command.
 pub fn command_print_added(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
@@ -39,7 +45,11 @@ pub fn command_print_added(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// Implementation of the `removed` command.
 pub fn command_print_removed(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+    if cmdline.len() < 2 {
+        bail!(tr!("At least two files are required."));
+    }
     let cmdline_rev = [cmdline[1], cmdline[0]];
     command_print_added(parser, &cmdline_rev)
 }

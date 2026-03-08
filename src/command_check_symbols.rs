@@ -1,3 +1,8 @@
+//! Command to verify consistency of special symbols between source and translation.
+//!
+//! This module checks if symbols like `%d`, `{name}`, etc., are preserved
+//! in the translated strings.
+
 use crate::parser::{Parser, PoMessage};
 use anyhow::{Result, bail};
 
@@ -7,38 +12,35 @@ fn strip_non_symbols(s: &str) -> String {
         .collect::<String>()
 }
 
+/// Checks a single message for symbol consistency.
+///
+/// Returns a warning message if symbols in `msgid` don't match those in `msgstr`.
 pub fn check_symbols(message: &PoMessage) -> Option<String> {
-    use PoMessage::*;
+    if message.is_header() {
+        return None;
+    }
 
-    match message {
-        Header { .. } => return None,
+    let msgid_syms = strip_non_symbols(&message.msgid);
 
-        Regular { msgid, msgstr, .. } | RegularWithContext { msgid, msgstr, .. } => {
-            let msgid_syms = strip_non_symbols(msgid);
+    if message.is_plural() {
+        for msgstr in &message.msgstr {
             let msgstr_syms = strip_non_symbols(msgstr);
             if msgid_syms != msgstr_syms {
                 return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
             }
         }
-
-        // msgid_plural is ignored, because we don't know how to match plurals here.
-        Plural { msgid, msgstr, .. } | PluralWithContext { msgid, msgstr, .. } => {
-            let msgid_syms = strip_non_symbols(msgid);
-            for msgstr in msgstr {
-                let msgstr_syms = strip_non_symbols(msgstr);
-                if msgid_syms != msgstr_syms {
-                    return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
-                }
-            }
+    } else {
+        let msgstr_syms = strip_non_symbols(message.msgstr_first());
+        if msgid_syms != msgstr_syms {
+            return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
         }
     }
 
     None
 }
 
+/// Implementation of the `check-symbols` command.
 pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    use PoMessage::*;
-
     match cmdline {
         ["-h", ..] | ["--help", ..] => help(),
 
@@ -47,14 +49,10 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
                 let messages = parser.parse_messages_from_file(file)?;
 
                 for message in messages.iter() {
-                    match message {
-                        Header { .. } => println!("{message}"),
-
-                        _ => {
-                            if let Some(errors) = check_symbols(message) {
-                                println!("{errors}\n#, fuzzy\n{message}");
-                            }
-                        }
+                    if message.is_header() {
+                        println!("{message}");
+                    } else if let Some(errors) = check_symbols(message) {
+                        println!("{errors}\n#, fuzzy\n{message}");
                     }
                 }
             }

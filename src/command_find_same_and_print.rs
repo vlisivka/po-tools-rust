@@ -1,7 +1,12 @@
+//! Command to find messages that are identical across multiple PO files.
+//!
+//! This is useful for identifying common translations in a set of files.
+
 use crate::parser::{Parser, PoMessage};
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 
+/// Implementation of the `same` command.
 pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {

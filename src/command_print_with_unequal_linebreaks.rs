@@ -1,9 +1,12 @@
-use crate::parser::{Parser, PoMessage};
+//! Command to find messages where the number of linebreaks in `msgid` and `msgstr` differ.
+//!
+//! This is often a sign of a formatting error in the translation.
+
+use crate::parser::Parser;
 use anyhow::{Result, bail};
 
+/// Implementation of the `with-unequal-linebreaks` command.
 pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) -> Result<()> {
-    use PoMessage::*;
-
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
             println!(
@@ -17,24 +20,21 @@ pub fn command_print_with_unequal_linebreaks(parser: &Parser, cmdline: &[&str]) 
                 let messages = parser.parse_messages_from_file(file)?;
 
                 for message in messages.iter() {
-                    match message {
-                        Header { .. } => println!("{message}"),
-
-                        Regular { msgid, msgstr, .. }
-                        | RegularWithContext { msgid, msgstr, .. } => {
-                            let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
-                            let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
+                    if message.is_header() {
+                        println!("{message}");
+                    } else if !message.is_plural() {
+                        let msgid_nl: u32 = message.msgid.matches('\n').map(|_| 1).sum();
+                        let msgstr_nl: u32 = message.msgstr_first().matches('\n').map(|_| 1).sum();
+                        if msgid_nl != msgstr_nl {
+                            println!("{message}");
+                        }
+                    } else {
+                        let msgid_nl: u32 = message.msgid.matches('\n').map(|_| 1).sum();
+                        for msgstr in &message.msgstr {
+                            let msgstr_nl: u32 = msgstr.matches('\n').map(|_| 1).sum();
                             if msgid_nl != msgstr_nl {
                                 println!("{message}");
-                            }
-                        }
-                        Plural { msgid, msgstr, .. } | PluralWithContext { msgid, msgstr, .. } => {
-                            let msgid_nl: u32 = msgid.matches('\n').map(|_| 1).sum();
-                            for msgstr in msgstr {
-                                let msgstr_nl = msgstr.matches('\n').map(|_| 1).sum();
-                                if msgid_nl != msgstr_nl {
-                                    println!("{message}");
-                                }
+                                break; // no need to print multiple times
                             }
                         }
                     }

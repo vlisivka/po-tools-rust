@@ -86,16 +86,15 @@ fn main() -> Result<()> {
     // Parse options
     loop {
         match tail[..] {
-      [ "-c", n, ..] | [ "--cases", n, ..] => {
+      [ "-c", n, ref rest @ ..] | [ "--cases", n, ref rest @ ..] => {
         match n.parse::<usize>() {
           Ok(n) if (1..10).contains(&n) => {
             number_of_plural_cases = Some(n);
-            tail = &tail[2..];
+            tail = rest;
           }
           _ => bail!(
-            "{}",
-            tr!("Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{}\".")
-              .replace("{}", n)
+            tr!("Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{value}\".")
+              .replace("{value}", n)
           ),
         }
       }
@@ -104,13 +103,13 @@ fn main() -> Result<()> {
         help();
         return Ok(());
       }
-      [ "--", .. ] => {
-        tail = &tail[1..];
+      [ "--", ref rest @ .. ] => {
+        tail = rest;
         break;
       }
       [ arg, ..] if arg.starts_with('-') => bail!(
         "{}",
-        tr!("Unknown option: \"{}\". Use --help for list of options.").replace("{}", arg)
+        tr!("Unknown option: \"{option}\". Use --help for list of options.").replace("{option}", arg)
       ),
       _ => break,
     }
@@ -158,7 +157,8 @@ fn main() -> Result<()> {
         ["help", ..] | [] => help(),
         [arg, ..] => bail!(
             "{}",
-            tr!("Unknown command: \"{}\". Use --help for list of commands.").replace("{}", arg)
+            tr!("Unknown command: \"{command}\". Use --help for list of commands.")
+                .replace("{command}", arg)
         ),
     }
 

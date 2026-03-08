@@ -1,21 +1,34 @@
+//! Dictionary support for translation terminology.
+//!
+//! This module provides the `Dictionary` struct for loading terminology
+//! from TSV files and searching for matches in text.
+
 use anyhow::{Context, Result};
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+/// A single entry in the dictionary.
 #[derive(Debug, Clone)]
 pub struct DictionaryEntry {
+    /// The source term (usually in English).
     pub key: String,
+    /// The translated term in the target language.
     pub translation: String,
 }
 
+/// A collection of dictionary entries.
 #[derive(Debug)]
 pub struct Dictionary {
+    /// List of entries in the dictionary.
     pub entries: Vec<DictionaryEntry>,
 }
 
 impl Dictionary {
+    /// Loads a dictionary from a TSV file.
+    ///
+    /// Each line should contain a term and its translation separated by a tab.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(&path).with_context(|| {
             format!(
@@ -45,7 +58,7 @@ impl Dictionary {
                 None => {
                     eprintln!(
                         "{}: \"{}\"",
-                        tr!("WARNING: Invalid dictionary entry at line {}: missing tab separator. Line:").replace("{}", &(line_no + 1).to_string()),
+                        tr!("WARNING: Invalid dictionary entry at line {line}: missing tab separator. Line:").replace("{line}", &(line_no + 1).to_string()),
                         line
                     );
                 }
@@ -55,6 +68,10 @@ impl Dictionary {
         Ok(Self { entries })
     }
 
+    /// Finds all dictionary terms that appear in the given text.
+    ///
+    /// Search is case-insensitive and respects word boundaries. It also
+    /// handles simple plurals (id + 's').
     pub fn find_matches<'a>(&'a self, text: &str) -> Vec<&'a DictionaryEntry> {
         let mut matches = Vec::new();
 

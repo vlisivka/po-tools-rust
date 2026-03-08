@@ -1,9 +1,17 @@
+//! Localization support for the application itself.
+//!
+//! This module handles loading translations from `.po` files and provides
+//! the `tr!` macro for translating user-facing strings.
+
 use crate::parser::{Parser, PoMessage};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
 static TRANSLATIONS: OnceLock<HashMap<String, String>> = OnceLock::new();
 
+/// Loads translations for the application from disk or embedded resources.
+///
+/// It checks for `.po` files based on the `LANG` environment variable.
 pub fn load_translations(parser: &Parser) {
     let lang = std::env::var("LANG").unwrap_or_else(|_| "C".to_string());
 
@@ -43,20 +51,8 @@ pub fn load_translations(parser: &Parser) {
     let mut map = HashMap::new();
     if let Some(msgs) = messages {
         for msg in msgs {
-            match msg {
-                PoMessage::Regular { msgid, msgstr } if !msgstr.is_empty() => {
-                    map.insert(msgid, msgstr);
-                }
-                PoMessage::RegularWithContext { msgid, msgstr, .. } if !msgstr.is_empty() => {
-                    map.insert(msgid, msgstr);
-                }
-                PoMessage::Plural { msgid, msgstr, .. } if !msgstr.is_empty() => {
-                    map.insert(msgid, msgstr[0].clone());
-                }
-                PoMessage::PluralWithContext { msgid, msgstr, .. } if !msgstr.is_empty() => {
-                    map.insert(msgid, msgstr[0].clone());
-                }
-                _ => {}
+            if !msg.is_header() && msg.is_translated() {
+                map.insert(msg.msgid.clone(), msg.msgstr_first().to_string());
             }
         }
     }
@@ -64,6 +60,9 @@ pub fn load_translations(parser: &Parser) {
     TRANSLATIONS.set(map).ok();
 }
 
+/// Translates a string using the loaded translations.
+///
+/// If no translation is found, returns the original string.
 pub fn translate(msgid: &str) -> &str {
     TRANSLATIONS
         .get()
@@ -72,6 +71,9 @@ pub fn translate(msgid: &str) -> &str {
         .unwrap_or(msgid)
 }
 
+/// Macro for translating strings at runtime.
+///
+/// Usage: `tr!("Hello, world!")`
 #[macro_export]
 macro_rules! tr {
     ($msgid:expr) => {

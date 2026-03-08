@@ -1,7 +1,13 @@
+//! Command to filter PO messages using AI-based rules.
+//!
+//! This command sends each message to an AI tool and filters the output
+//! based on the AI's response (e.g., "yes" or "no").
+
 use crate::parser::{Parser, PoMessage};
 use crate::util::pipe_to_command;
 use anyhow::{Result, bail};
 
+/// Implementation of the `filter` command.
 pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     let mut model = "ollama:gemma3n:latest";
     let mut role = "po-review";
@@ -43,9 +49,8 @@ pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Re
             }
             [arg, ..] if arg.starts_with('-') => {
                 bail!(
-                    "{}",
-                    tr!("Unknown option: \"{}\". Use --help for list of options.")
-                        .replace("{}", arg)
+                    tr!("Unknown option: \"{option}\". Use --help for list of options.")
+                        .replace("{option}", arg)
                 )
             }
             _ => break,
@@ -77,48 +82,40 @@ fn filter_and_print(
     aichat_options: &[&str],
     yes_only: bool,
     no_only: bool,
-    messages: &Vec<PoMessage>,
+    messages: &[PoMessage],
 ) -> Result<()> {
     for message in messages {
-        match message {
-            // Pass header untranslated
-            PoMessage::Header { .. } => {
-                println!("{message}");
-            }
-
-            PoMessage::Regular { .. }
-            | PoMessage::RegularWithContext { .. }
-            | PoMessage::Plural { .. }
-            | PoMessage::PluralWithContext { .. } => {
-                // Filter template
-                let message_text = format!(
-                    r#"
+        if message.is_header() {
+            println!("{message}");
+        } else {
+            // Filter template
+            let message_text = format!(
+                r#"
 <message>
 {message}
 </message>
 "#
-                );
+            );
 
-                // Review
-                let reply_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
+            // Review
+            let reply_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
 
-                // Extract text between <reply> and </reply>, if they are present
-                //        let reply_text_slice = if let (Some(start), Some(end)) = (reply_text.find("<reply>"), reply_text.find("</reply")) {
-                //          let tag_len="<reply>".len();
-                //          &reply_text[(start+tag_len) .. end]
-                //        } else {
-                //          &reply_text[..]
-                //        };
-                let reply_text_slice = &reply_text[..];
+            // Extract text between <reply> and </reply>, if they are present
+            //        let reply_text_slice = if let (Some(start), Some(end)) = (reply_text.find("<reply>"), reply_text.find("</reply")) {
+            //          let tag_len="<reply>".len();
+            //          &reply_text[(start+tag_len) .. end]
+            //        } else {
+            //          &reply_text[..]
+            //        };
+            let reply_text_slice = &reply_text[..];
 
-                match (yes_only, no_only, reply_text_slice) {
-                    (true, _, "yes") | (_, true, "no") => {
-                        println!("# Review: {reply_text_slice}\n#, fuzzy\n{message}");
-                    }
-                    (true, _, _) | (_, true, _) => {}
-                    _ => {
-                        println!("# Review: {reply_text_slice}\n#, fuzzy\n{message}");
-                    }
+            match (yes_only, no_only, reply_text_slice) {
+                (true, _, "yes") | (_, true, "no") => {
+                    println!("# Review: {reply_text_slice}\n#, fuzzy\n{message}");
+                }
+                (true, _, _) | (_, true, _) => {}
+                _ => {
+                    println!("# Review: {reply_text_slice}\n#, fuzzy\n{message}");
                 }
             }
         }

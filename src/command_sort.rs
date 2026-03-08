@@ -1,6 +1,9 @@
+//! Command to sort messages in a PO file alphabetically by `msgctxt` and `msgid`.
+
 use crate::parser::Parser;
 use anyhow::{Result, bail};
 
+/// Implementation of the `sort` command.
 pub fn command_sort_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => help(),

@@ -1,7 +1,13 @@
+//! Command to merge two PO files.
+//!
+//! Messages from the second file overwrite translations for the same keys
+//! in the first file.
+
 use crate::parser::{Parser, PoMessage};
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 
+/// Implementation of the `merge` command.
 pub fn command_merge_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
