@@ -9,13 +9,15 @@ use anyhow::{Context, Result, bail};
 pub struct Parser {
     /// Expected number of plural cases (e.g., from `nplurals=N` in the header).
     pub number_of_plural_cases: Option<usize>,
+    /// Whether to ignore extra text after the last `msgstr` or `msgstr[N]`.
+    pub ignore_garbage_after_msgstr: bool,
 }
 
 /// Represents a single message entry in a PO file.
 ///
 /// A message can be a simple id-to-string translation, have a context,
 /// or represent plural forms. It also handles the special "header" entry.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
 pub struct PoMessage {
     /// Optional context (`msgctxt`).
     pub msgctxt: Option<String>,
@@ -28,6 +30,8 @@ pub struct PoMessage {
     /// - For plural messages: N elements (one per plural form).
     /// - For headers: one element with header metadata.
     pub msgstr: Vec<String>,
+    /// Comments associated with this message (e.g., `#`, `#:`, `#,`).
+    pub comments: Vec<String>,
 }
 
 impl PoMessage {
@@ -68,6 +72,7 @@ impl PoMessage {
             } else {
                 Vec::new()
             },
+            comments: self.comments.clone(),
         }
     }
 
@@ -78,6 +83,7 @@ impl PoMessage {
             msgid: key.msgid.clone(),
             msgid_plural: key.msgid_plural.clone(),
             msgstr: self.msgstr.clone(),
+            comments: key.comments.clone(),
         }
     }
 }
@@ -122,16 +128,15 @@ pub fn escape_string(s: &str) -> String {
 
 impl std::fmt::Display for PoMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Comments
+        for comment in &self.comments {
+            writeln!(f, "{}", comment)?;
+        }
+
         // Header
         if self.is_header() {
             let msgstr = escape_string(self.msgstr_first());
-            return write!(
-                f,
-                "\
-          msgid \"\"\n\
-          msgstr \"{msgstr}\"\n\
-        "
-            );
+            return write!(f, "msgid \"\"\nmsgstr \"{msgstr}\"\n");
         }
 
         // Optional msgctxt
@@ -242,6 +247,35 @@ impl Parser {
     pub fn new(number_of_plural_cases: Option<usize>) -> Self {
         Self {
             number_of_plural_cases,
+            ignore_garbage_after_msgstr: false,
+        }
+    }
+
+    fn parse_line<'a>(&self, text: &'a [u8]) -> Result<(String, &'a [u8])> {
+        let mut i = 0;
+        while i < text.len() && text[i] != b'\n' {
+            i += 1;
+        }
+        let line = String::from_utf8_lossy(&text[..i]).to_string();
+        let tail = if i < text.len() {
+            &text[i + 1..]
+        } else {
+            &text[i..]
+        };
+        Ok((line, tail))
+    }
+
+    fn collect_comments<'a>(&self, text: &'a [u8], comments: &mut Vec<String>) -> Result<&'a [u8]> {
+        let mut tail = text;
+        loop {
+            let next_tail = skip_spaces(tail);
+            if next_tail.starts_with(&[b'#']) {
+                let (comment, next_tail) = self.parse_line(next_tail)?;
+                comments.push(comment);
+                tail = next_tail;
+            } else {
+                return Ok(next_tail);
+            }
         }
     }
 
@@ -358,17 +392,17 @@ impl Parser {
     pub fn parse_message(&self, text: &[u8]) -> Result<PoMessage> {
         let mut msgctxt: Option<String> = None;
         let mut msgid: Option<String> = None;
+        let mut comments: Vec<String> = Vec::new();
 
-        let mut tail = text;
+        let mut tail = self.collect_comments(text, &mut comments)?;
         loop {
-            // TODO: Parse comments to support fuzzy messages
             let (kw, t) = self
                 .parse_keyword(tail)
                 .context("Expected msgid \"...\" or msgctxt \"...\".")?;
             let (s, t) = self
                 .parse_string(t)
                 .context("Expected msgid \"...\" or msgctxt \"...\".")?;
-            tail = t;
+            tail = self.collect_comments(t, &mut comments)?;
 
             match kw {
                 // Context
@@ -394,7 +428,7 @@ impl Parser {
                     let (s, tail) = self
                         .parse_string(tail)
                         .context("Expected msgstr \"...\" after empty msgid (AKA header).")?;
-                    let tail = skip_spaces_and_comments(tail);
+                    let tail = self.collect_comments(tail, &mut comments)?;
 
                     match kw {
                         // Header text
@@ -404,6 +438,7 @@ impl Parser {
                                 msgid: String::new(),
                                 msgid_plural: None,
                                 msgstr: vec![s],
+                                comments,
                             });
                         }
 
@@ -445,15 +480,17 @@ impl Parser {
         match kw {
             // End of regular message
             Keyword::Msgstr => {
-                let _tail = skip_spaces_and_comments(tail);
-                // FIXME: add option to ignore garbage after end of msgstr:
-                //if !tail.is_empty() { bail!("Garbage after msgstr. Text: \"{}\".", snippet(tail, 20)); }
+                let tail = self.collect_comments(tail, &mut comments)?;
+                if !self.ignore_garbage_after_msgstr && !tail.is_empty() {
+                    bail!("Garbage after msgstr. Text: \"{}\".", snippet(tail, 20));
+                }
 
                 Ok(PoMessage {
                     msgctxt,
-                    msgid: msgid.unwrap(),
+                    msgid: msgid.expect("msgid must be set before msgstr"),
                     msgid_plural: None,
                     msgstr: vec![s],
+                    comments,
                 })
             }
 
@@ -465,17 +502,19 @@ impl Parser {
                 let mut tail = tail;
                 while !tail.is_empty() {
                     match self.parse_keyword(tail) {
-            // Plural msgstr[N]
-            Ok((Keyword::MsgstrPlural(n), t)) if msgstr.len() == n as usize => {
-              let (s, t) = self.parse_string(t)?;
-              msgstr.push(s);
-              tail = t;
-            },
+                        // Plural msgstr[N]
+                        Ok((Keyword::MsgstrPlural(n), t)) if msgstr.len() == n as usize => {
+                            let (s, t) = self.parse_string(t)?;
+                            msgstr.push(s);
+                            tail = t;
+                        }
+                        _ if self.ignore_garbage_after_msgstr => break,
 
-            Ok((Keyword::MsgstrPlural(n), _)) => bail!("Unexpected index of plural msgstr[N]. Expected index: {}, actual index: {}. Text: \"{}\".", msgstr.len(), n, snippet(tail, 20)),
-            Err(e) => return Err(e.context("Expected msgstr[N] \"...\" after msgid_plural \"...\" or msgstr[N] \"...\".")),
-            Ok((kw,_)) => bail!("Unexpected keyword after msgid_plural. Expected: msgstr[N]. Actual keyword: {}.", kw),
-          }
+                        Ok((Keyword::MsgstrPlural(n), _)) => 
+                            bail!("Unexpected index of plural msgstr[N]. Expected index: {}, actual index: {}. Text: \"{}\".", msgstr.len(), n, snippet(tail, 20)),
+                        Err(e) => return Err(e.context("Expected msgstr[N] \"...\" after msgid_plural \"...\" or msgstr[N] \"...\".")),
+                        Ok((kw, _)) => bail!("Unexpected keyword after msgid_plural. Expected: msgstr[N]. Actual keyword: {}.", kw),
+                    }
                 }
 
                 if let Some(number_of_plural_cases) = self.number_of_plural_cases {
@@ -487,16 +526,17 @@ impl Parser {
                     msgstr.truncate(number_of_plural_cases);
                 }
 
-                let tail = skip_spaces_and_comments(tail);
-                if !tail.is_empty() {
+                let tail = self.collect_comments(tail, &mut comments)?;
+                if !self.ignore_garbage_after_msgstr && !tail.is_empty() {
                     bail!("Garbage after msgstr[N]. Text: \"{}\".", snippet(tail, 20));
                 }
 
                 Ok(PoMessage {
                     msgctxt,
-                    msgid: msgid.unwrap(),
+                    msgid: msgid.expect("msgid must be set before msgid_plural"),
                     msgid_plural: Some(msgid_plural),
                     msgstr,
+                    comments,
                 })
             }
 
@@ -544,6 +584,7 @@ impl Parser {
     }
 
     /// Parses multiple messages from a string.
+    #[allow(dead_code)]
     pub fn parse_messages_from_str(&self, s: &str) -> Result<Vec<PoMessage>> {
         self.parse_messages_from_stream(s.as_bytes())
     }
@@ -577,6 +618,7 @@ msgstr \"\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -593,6 +635,7 @@ msgstr \"%d відповідний елемент\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -626,6 +669,7 @@ msgstr ""
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -643,6 +687,7 @@ msgstr \"%d відповідний елемент\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -662,6 +707,7 @@ msgstr[2] \"%d відповідних елементів\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -682,6 +728,7 @@ msgstr[2] \"%d відповідних елементів\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -700,6 +747,7 @@ msgstr \"\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -715,6 +763,7 @@ msgstr "Дозволено лише одне з -s, -g, -r або -l\n"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -734,6 +783,9 @@ msgstr \"\"
 # Baz
 ";
         let expected = "\
+# Foo
+# Bar
+# Baz
 msgid  \"foo\"
 msgstr \"\"
 \"bar\\n\"
@@ -742,6 +794,7 @@ msgstr \"\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -760,9 +813,103 @@ msgstr \"\"
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
         let parser = Parser {
             number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
         };
         let err = parser.parse_message(&bytes[..]).unwrap_err();
         let err_root_cause = err.root_cause();
         assert_eq!(expected_err, format!("{err_root_cause}"));
+    }
+
+    #[test]
+    fn test_po_message_properties() {
+        let msg = PoMessage {
+            msgid: "test".to_string(),
+            msgstr: vec!["переклад".to_string()],
+            ..Default::default()
+        };
+        assert!(!msg.is_header());
+        assert!(!msg.is_plural());
+        assert!(!msg.has_context());
+        assert!(msg.is_translated());
+        assert_eq!(msg.msgstr_first(), "переклад");
+    }
+
+    #[test]
+    fn test_po_message_plural() {
+        let msg = PoMessage {
+            msgid: "test".to_string(),
+            msgid_plural: Some("tests".to_string()),
+            msgstr: vec!["однина".to_string(), "множина".to_string()],
+            ..Default::default()
+        };
+        assert!(msg.is_plural());
+        assert!(msg.is_translated());
+        assert_eq!(msg.msgstr_first(), "однина");
+    }
+
+    #[test]
+    fn test_po_message_untranslated() {
+        let msg = PoMessage {
+            msgid: "test".to_string(),
+            msgstr: vec!["".to_string()],
+            ..Default::default()
+        };
+        assert!(!msg.is_translated());
+
+        let msg_plural = PoMessage {
+            msgid: "test".to_string(),
+            msgid_plural: Some("tests".to_string()),
+            msgstr: vec!["".to_string(), "".to_string()],
+            ..Default::default()
+        };
+        assert!(!msg_plural.is_translated());
+    }
+
+    #[test]
+    fn test_po_message_to_key() {
+        let msg = PoMessage {
+            msgctxt: Some("ctx".to_string()),
+            msgid: "foo".to_string(),
+            ..Default::default()
+        };
+        let key = msg.to_key();
+        assert_eq!(key.msgid, "foo");
+        assert_eq!(key.msgctxt, Some("ctx".to_string()));
+
+        let msg2 = msg.with_key(&key);
+        assert_eq!(msg2.msgid, "foo");
+        assert_eq!(msg2.msgctxt, Some("ctx".to_string()));
+    }
+
+    #[test]
+    fn test_ignore_garbage() {
+        let orig = "msgid  \"foo\"\nmsgstr \"bar\"\ngarbage line\n";
+        let parser_strict = Parser {
+            number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: false,
+        };
+        assert!(parser_strict.parse_message_from_str(orig).is_err());
+
+        let parser_lax = Parser {
+            number_of_plural_cases: None,
+            ignore_garbage_after_msgstr: true,
+        };
+        let msg = parser_lax
+            .parse_message_from_str(orig)
+            .expect("lax parsing should work");
+        assert_eq!(msg.msgstr_first(), "bar");
+    }
+
+    #[test]
+    fn test_ignore_garbage_plural() {
+        let orig = "msgid \"tests\"\nmsgid_plural \"tests\"\nmsgstr[0] \"test\"\nmsgstr[1] \"tests\"\nEXTRA GARBAGE\n";
+        let parser_lax = Parser {
+            number_of_plural_cases: Some(2),
+            ignore_garbage_after_msgstr: true,
+        };
+        let msg = parser_lax
+            .parse_message_from_str(orig)
+            .expect("lax parsing should work for plural messages");
+        assert_eq!(msg.msgstr.len(), 2);
     }
 }

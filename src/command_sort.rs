@@ -9,11 +9,19 @@ pub fn command_sort_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
         ["-h", ..] | ["--help", ..] => help(),
 
         [file] => {
-            let mut messages = parser.parse_messages_from_file(file)?;
+            let messages = parser.parse_messages_from_file(file)?;
 
-            messages.sort();
+            let (headers, mut others): (Vec<_>, Vec<_>) =
+                messages.into_iter().partition(|m| m.is_header());
 
-            messages.iter().for_each(|m| println!("{m}"));
+            others.sort();
+
+            for m in headers {
+                println!("{m}");
+            }
+            for m in others {
+                println!("{m}");
+            }
         }
 
         _ => bail!(tr!(

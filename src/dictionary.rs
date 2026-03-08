@@ -16,6 +16,8 @@ pub struct DictionaryEntry {
     pub key: String,
     /// The translated term in the target language.
     pub translation: String,
+    /// Pre-compiled regex for searching this term.
+    pub regex: Regex,
 }
 
 /// A collection of dictionary entries.
@@ -50,9 +52,20 @@ impl Dictionary {
             // Split by tab char
             match line.split_once('\t') {
                 Some((key, translation)) => {
+                    let key = key.trim();
+                    if key.is_empty() {
+                        continue;
+                    }
+                    let escaped_key = regex::escape(key);
+                    let pattern = format!(r"(?i)\b{}(s)?\b", escaped_key);
+                    let regex = Regex::new(&pattern).with_context(|| {
+                        format!("Failed to compile regex for dictionary key: {key}")
+                    })?;
+
                     entries.push(DictionaryEntry {
-                        key: key.trim().to_string(),
+                        key: key.to_string(),
                         translation: translation.trim().to_string(),
+                        regex,
                     });
                 }
                 None => {
@@ -75,26 +88,9 @@ impl Dictionary {
     pub fn find_matches<'a>(&'a self, text: &str) -> Vec<&'a DictionaryEntry> {
         let mut matches = Vec::new();
 
-        // Simple word boundary check using regex
-        // We want to match "key" or "key+s" (plural) as whole words.
-        // FIXME: We construct a regex for each key: that's too slow.
-
         for entry in &self.entries {
-            if entry.key.is_empty() {
-                continue;
-            }
-
-            // Escape key for regex
-            let escaped_key = regex::escape(&entry.key);
-
-            // Pattern: \bKEY(s)?\b
-            // Note: special chars in key should be handled.
-            let pattern = format!(r"(?i)\b{}(s)?\b", escaped_key);
-
-            if let Ok(re) = Regex::new(&pattern) {
-                if re.is_match(text) {
-                    matches.push(entry);
-                }
+            if entry.regex.is_match(text) {
+                matches.push(entry);
             }
         }
 
@@ -113,15 +109,20 @@ mod tests {
         // Since we can't easily mock file system here without extra crates,
         // let's test `find_matches` with manually created dict.
 
+        let bug_re = Regex::new(r"(?i)\bbug(s)?\b").unwrap();
+        let feat_re = Regex::new(r"(?i)\bfeature(s)?\b").unwrap();
+
         let dict = Dictionary {
             entries: vec![
                 DictionaryEntry {
                     key: "bug".to_string(),
                     translation: "латка".to_string(),
+                    regex: bug_re,
                 },
                 DictionaryEntry {
                     key: "feature".to_string(),
                     translation: "можливість".to_string(),
+                    regex: feat_re,
                 },
             ],
         };

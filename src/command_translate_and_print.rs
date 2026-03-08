@@ -329,6 +329,7 @@ Produce only the {language} translation, without any additional explanations or 
         } else {
             number_of_plural_cases
         },
+        ignore_garbage_after_msgstr: true,
     };
 
     match parser.parse_message_from_str(new_message_text_slice) {
@@ -458,6 +459,7 @@ fn review_files_and_print(
 ) -> Result<()> {
     let parser = Parser {
         number_of_plural_cases,
+        ignore_garbage_after_msgstr: false,
     };
 
     for msgs in messages.iter_mut() {

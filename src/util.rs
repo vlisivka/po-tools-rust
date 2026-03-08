@@ -19,7 +19,9 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
         .stderr(Stdio::piped())
         .spawn()?;
 
-    let mut stdin = child.stdin.take().expect("Failed to open stdin");
+    let mut stdin = child.stdin.take().expect(
+        "Failed to open stdin of child process; check if Command was spawned with Stdio::piped()",
+    );
     let text = text.to_string();
 
     let output = std::thread::scope(|s| {
@@ -58,4 +60,38 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
     })?;
 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pipe_to_command_cat() -> Result<()> {
+        let input = "hello world\nmultiple\nlines";
+        let result = pipe_to_command("cat", &[], input)?;
+        assert_eq!(result, input);
+        Ok(())
+    }
+
+    #[test]
+    fn test_pipe_to_command_grep() -> Result<()> {
+        let input = "hello\nworld\nhello world\n";
+        let result = pipe_to_command("grep", &["hello"], input)?;
+        assert_eq!(result, "hello\nhello world\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_pipe_to_command_error() {
+        let result = pipe_to_command("non-existent-command-123", &[], "test");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pipe_to_command_exit_failure() {
+        // false command always returns 1
+        let result = pipe_to_command("false", &[], "test");
+        assert!(result.is_err());
+    }
 }

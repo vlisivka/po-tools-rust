@@ -84,3 +84,19 @@ macro_rules! tr {
         $crate::localization::translate($msgid)
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_translate_fallback() {
+        // Translation not loaded or msgid missing, should return the same string
+        assert_eq!(translate("non-existent-msgid"), "non-existent-msgid");
+    }
+
+    #[test]
+    fn test_tr_macro() {
+        assert_eq!(tr!("test message"), "test message");
+    }
+}
