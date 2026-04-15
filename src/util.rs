@@ -59,7 +59,13 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
         }
     })?;
 
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    let mut result = String::from_utf8_lossy(&output.stdout).into_owned();
+    if cfg!(windows) {
+        // Normalize Windows CRLF line endings to LF so output matches our expected text format.
+        result = result.replace("\r\n", "\n");
+    }
+
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -67,6 +73,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(windows))]
     fn test_pipe_to_command_cat() -> Result<()> {
         let input = "hello world\nmultiple\nlines";
         let result = pipe_to_command("cat", &[], input)?;
