@@ -11,6 +11,7 @@ repository = "https://github.com/vlisivka/po-tools"
 anyhow="1.0.83"
 regex = "1.12.2"
 strsim = "0.10"
+unicode-bom = "2.0.3"
 
 [features]
 embed-uk = []

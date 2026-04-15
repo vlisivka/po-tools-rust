@@ -55,3 +55,33 @@ fn test_sort_command() {
     let id_b_pos = stdout.find("msgid  \"b\"").unwrap();
     assert!(id_a_pos < id_b_pos);
 }
+
+#[test]
+fn test_parse_file_with_utf8_bom() {
+    let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("po-tools");
+    cmd.env("LC_ALL", "C");
+
+    let output = cmd
+        .arg("parse")
+        .arg("test-data/test_bom.po")
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    assert!(stdout.contains("The cat is on the mat"));
+}
+
+#[test]
+fn test_parse_file_with_utf8_bom_via_sort_command() {
+    let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("po-tools");
+    cmd.env("LC_ALL", "C");
+
+    let output = cmd
+        .arg("sort")
+        .arg("test-data/test_bom.po")
+        .assert()
+        .success();
+
+    let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
+    assert!(stdout.contains("The cat is on the mat"));
+}
