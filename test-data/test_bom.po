@@ -1,0 +1,18 @@
+﻿msgid ""
+msgstr "Header: header data."
+
+msgid "%s new patch,"
+msgid_plural "%s new patches,"
+msgstr[0] ""
+
+msgid "Fixing bugs and adding features."
+msgstr ""
+
+msgid "No matches here."
+msgstr ""
+
+msgid "The cat is on the mat."
+msgstr ""
+
+msgid "Catalogue is buggy."
+msgstr ""

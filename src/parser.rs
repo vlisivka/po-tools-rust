@@ -4,6 +4,8 @@
 //! struct to represent individual translation entries.
 
 use anyhow::{Context, Result, bail};
+use std::io::{Read, Seek, SeekFrom};
+use unicode_bom::Bom;
 
 /// Parser for messages in Portable Object format by GNU gettext.
 pub struct Parser {
@@ -510,7 +512,7 @@ impl Parser {
                         }
                         _ if self.ignore_garbage_after_msgstr => break,
 
-                        Ok((Keyword::MsgstrPlural(n), _)) => 
+                        Ok((Keyword::MsgstrPlural(n), _)) =>
                             bail!("Unexpected index of plural msgstr[N]. Expected index: {}, actual index: {}. Text: \"{}\".", msgstr.len(), n, snippet(tail, 20)),
                         Err(e) => return Err(e.context("Expected msgstr[N] \"...\" after msgid_plural \"...\" or msgstr[N] \"...\".")),
                         Ok((kw, _)) => bail!("Unexpected keyword after msgid_plural. Expected: msgstr[N]. Actual keyword: {}.", kw),
@@ -597,14 +599,96 @@ impl Parser {
             let f = std::fs::File::open(file)?;
             let f = std::io::BufReader::new(f);
 
-            self.parse_messages_from_stream(f)
+            self.parse_messages_from_read(f)
         }
+    }
+
+    /// Parses messages from a stream with BOM detection.
+    ///
+    /// This method reads the stream, checks for a Byte Order Mark (BOM),
+    /// and parses the PO message records. Only UTF-8 BOM is supported.
+    /// Other BOMs (e.g., UTF-16) will return an error.
+    ///
+    /// The stream must implement `Read` + `Seek` to allow rewinding after
+    /// reading the BOM bytes.
+    ///
+    /// It is private for now and is used for unit testing.
+    /// If we decide to make it public, we would need to come with better name.
+    fn parse_messages_from_read(&self, f: impl Read + Seek) -> Result<Vec<PoMessage>> {
+        let mut f = std::io::BufReader::new(f);
+
+        // The maximum byte length of BOM is 4 bytes
+        let mut bom_data = [0u8; 4];
+        let bytes_read = f.read(&mut bom_data)?;
+        let bom = Bom::from(&bom_data[0..bytes_read]);
+
+        match bom {
+            Bom::Null => { /*Do nothing, we are fine. Assume a file is in UTF-8*/ }
+            Bom::Utf8 => { /*Do nothing, we are fine. File would be read directly, just skipping BOM*/
+            }
+            _ => {
+                // In the future, we can support other BOMs, for example, by using `encoding_rs_io` crate
+                // (note that it supports only UTF8 and UTF16, so this check would still be needed).
+                let bom_hex: &[u8] = bom.as_ref();
+                bail!(
+                    "File has unsupported BOM: {bom} ({bom_hex:02X?}). Only UTF-8 BOM is supported."
+                )
+            }
+        }
+
+        // Rewind the file back, so we start reading from the ending of BOM
+        // If Bom is `Bom::Null` then we would read a file from the start, otherwise we would have real BOM length
+        f.seek(SeekFrom::Start(bom.len() as u64))?;
+
+        self.parse_messages_from_stream(f)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_stream_with_utf8_bom() {
+        let bom_and_content =
+            b"\xEF\xBB\xBFmsgid \"\"\nmsgstr \"test header\"\n\nmsgid \"hello\"\nmsgstr \"\"\n";
+        let mut reader = Cursor::new(&bom_and_content[..]);
+
+        let parser = Parser::new(None);
+        let result = parser.parse_messages_from_read(&mut reader);
+        let messages = result.expect("should parse successfully");
+
+        assert_eq!(messages.len(), 2);
+        assert!(messages[0].is_header());
+        assert_eq!(messages[1].msgid, "hello");
+    }
+
+    #[test]
+    fn parse_stream_without_bom() {
+        let content = b"msgid \"\"\nmsgstr \"test header\"\n\nmsgid \"hello\"\nmsgstr \"world\"\n";
+        let mut reader = Cursor::new(&content[..]);
+
+        let parser = Parser::new(None);
+        let result = parser.parse_messages_from_read(&mut reader);
+        let messages = result.expect("should parse successfully");
+
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[1].msgid, "hello");
+        assert_eq!(messages[1].msgstr_first(), "world");
+    }
+
+    #[test]
+    fn parse_stream_with_utf16_bom_should_fail() {
+        let bom_and_content = b"\xFF\xFEmsgid \"\"\nmsgstr \"test\"\n";
+        let mut reader = Cursor::new(&bom_and_content[..]);
+
+        let parser = Parser::new(None);
+        let result = parser.parse_messages_from_read(&mut reader);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("unsupported BOM"));
+    }
 
     #[test]
     fn header() {
