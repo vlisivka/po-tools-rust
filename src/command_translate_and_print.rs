@@ -5,7 +5,7 @@
 
 use crate::dictionary::Dictionary;
 use crate::parser::{Parser, PoMessage};
-use crate::util::pipe_to_command;
+use crate::util::{pipe_to_command, validate_message};
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use strsim::normalized_levenshtein;
@@ -621,28 +621,3 @@ OPTIONS:
     );
 }
 
-// FIXME: Return Option<&str> instead of String.
-// TODO: Rename to find_issues_with_translation(message).
-fn validate_message(message: &PoMessage) -> String {
-    if message.is_header() {
-        return "".into();
-    }
-
-    if !message.is_plural() {
-        if message.msgstr_first().is_empty() {
-            return tr!("Message is not translated.").to_string();
-        }
-    } else {
-        for msgstr in &message.msgstr {
-            if msgstr.is_empty() {
-                return tr!("Message is not translated fully.").to_string();
-            }
-        }
-    }
-    use crate::command_check_symbols::check_symbols;
-
-    match check_symbols(message) {
-        None => "".into(),
-        Some(errors) => errors,
-    }
-}

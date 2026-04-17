@@ -3,6 +3,8 @@
 //! This module contains common helper functions like executing external commands
 //! with piped input/output.
 
+use crate::command_check_symbols::check_symbols;
+use crate::parser::PoMessage;
 use anyhow::{Context, Result, bail};
 
 /// Executes an external command, piping the given text to its stdin and capturing stdout.
@@ -67,6 +69,33 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
 
     Ok(result)
 }
+/// Validates a message and returns a string with any found issues.
+///
+/// This is used by AI-based commands to check if the generated translation
+/// is technically sound.
+pub fn validate_message(message: &PoMessage) -> String {
+    if message.is_header() {
+        return "".into();
+    }
+
+    if !message.is_plural() {
+        if message.msgstr_first().is_empty() {
+            return tr!("Message is not translated.").to_string();
+        }
+    } else {
+        for msgstr in &message.msgstr {
+            if msgstr.is_empty() {
+                return tr!("Message is not translated fully.").to_string();
+            }
+        }
+    }
+
+    match check_symbols(message) {
+        None => "".into(),
+        Some(errors) => errors,
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
