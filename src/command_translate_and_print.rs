@@ -131,9 +131,9 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
         eprintln!(
             "{}: {}",
             tr!("INFO"),
-            tr!("Processing file {}, found {} messages")
-                .replace("{}", file)
-                .replace("{}", &messages.len().to_string())
+            tr!("Processing file {file}, found {count} messages")
+                .replace("{file}", file)
+                .replace("{count}", &messages.len().to_string())
         );
         translate_and_print(
             aichat_command,

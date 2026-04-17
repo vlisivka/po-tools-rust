@@ -44,7 +44,7 @@ pub fn load_translations(parser: &Parser) {
     }
 
     // 2. Fallback to embedded Ukrainian if LANG is uk and disk load failed
-    #[cfg(feature = "embed-uk")]
+    #[cfg(feature = "bundled-translations")]
     if messages.is_none() && lang_base == "uk" {
         let embedded = include_str!("../locales/uk.po");
         if let Ok(msgs) = parser.parse_messages_from_str(embedded) {

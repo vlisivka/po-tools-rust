@@ -1,6 +1,6 @@
 [package]
 name = "po-tools"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 authors = ["Volodymyr M. Lisivka <vlisivka@gmail.com>"]
 description = "Automatic translation of Gettext PO files using AI."
@@ -14,7 +14,7 @@ strsim = "0.10"
 unicode-bom = "2.0.3"
 
 [features]
-embed-uk = []
+bundled-translations = []
 
 [profile.release]
 strip = true
