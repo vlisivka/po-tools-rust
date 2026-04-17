@@ -96,7 +96,6 @@ pub fn validate_message(message: &PoMessage) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
