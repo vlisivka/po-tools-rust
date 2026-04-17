@@ -71,4 +71,4 @@ These commands require `aichat` to be installed and configured.
 
 ## License
 
-MIT / Apache-2.0
+GPL 3.0
