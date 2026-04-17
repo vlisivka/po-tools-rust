@@ -26,13 +26,13 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
         for msgstr in &message.msgstr {
             let msgstr_syms = strip_non_symbols(msgstr);
             if msgid_syms != msgstr_syms {
-                return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
+                return Some(tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms));
             }
         }
     } else {
         let msgstr_syms = strip_non_symbols(message.msgstr_first());
         if msgid_syms != msgstr_syms {
-            return Some(format!("{}", tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms)));
+            return Some(tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms));
         }
     }
 

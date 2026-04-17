@@ -42,34 +42,32 @@ fn diff_by_str_and_print(m1: &PoMessage, m2: &PoMessage) -> Result<()> {
                 tr!("# New message:\n")
             );
         }
-    } else {
-        if m2.is_plural() {
-            if m1.msgstr.len() < m2.msgstr.len() {
-                println!(
-                    "{}{m1}{}{m2}",
-                    tr!("# Original message:\n"),
-                    tr!("# New plural cases:\n")
-                );
-            } else if m1.msgstr.len() > m2.msgstr.len() {
-                println!(
-                    "{}{m1}{}{m2}",
-                    tr!("# Original message:\n"),
-                    tr!("# Removed plural cases:\n")
-                );
-            } else if std::iter::zip(&m1.msgstr, &m2.msgstr).any(|(s1, s2)| s1 != s2) {
-                println!(
-                    "{}{m1}{}{m2}",
-                    tr!("# Original message:\n"),
-                    tr!("# New translation:\n")
-                );
-            }
-        } else {
+    } else if m2.is_plural() {
+        if m1.msgstr.len() < m2.msgstr.len() {
             println!(
                 "{}{m1}{}{m2}",
                 tr!("# Original message:\n"),
-                tr!("# New message:\n")
+                tr!("# New plural cases:\n")
+            );
+        } else if m1.msgstr.len() > m2.msgstr.len() {
+            println!(
+                "{}{m1}{}{m2}",
+                tr!("# Original message:\n"),
+                tr!("# Removed plural cases:\n")
+            );
+        } else if std::iter::zip(&m1.msgstr, &m2.msgstr).any(|(s1, s2)| s1 != s2) {
+            println!(
+                "{}{m1}{}{m2}",
+                tr!("# Original message:\n"),
+                tr!("# New translation:\n")
             );
         }
+    } else {
+        println!(
+            "{}{m1}{}{m2}",
+            tr!("# Original message:\n"),
+            tr!("# New message:\n")
+        );
     }
 
     Ok(())

@@ -144,7 +144,7 @@ impl std::fmt::Display for PoMessage {
         // Optional msgctxt
         if let Some(ref msgctxt) = self.msgctxt {
             let msgctxt = escape_string(msgctxt);
-            write!(f, "msgctxt \"{msgctxt}\"\n")?;
+            writeln!(f, "msgctxt \"{msgctxt}\"")?;
         }
 
         let msgid = escape_string(&self.msgid);
@@ -271,7 +271,7 @@ impl Parser {
         let mut tail = text;
         loop {
             let next_tail = skip_spaces(tail);
-            if next_tail.starts_with(&[b'#']) {
+            if next_tail.starts_with(b"#") {
                 let (comment, next_tail) = self.parse_line(next_tail)?;
                 comments.push(comment);
                 tail = next_tail;

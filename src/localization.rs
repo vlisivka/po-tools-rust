@@ -35,11 +35,11 @@ pub fn load_translations(parser: &Parser) {
     ];
 
     for file in filenames {
-        if std::path::Path::new(&file).exists() {
-            if let Ok(msgs) = parser.parse_messages_from_file(&file) {
-                messages = Some(msgs);
-                break;
-            }
+        if std::path::Path::new(&file).exists()
+            && let Ok(msgs) = parser.parse_messages_from_file(&file)
+        {
+            messages = Some(msgs);
+            break;
         }
     }
 

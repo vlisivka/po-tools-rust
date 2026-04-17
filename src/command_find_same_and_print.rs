@@ -31,10 +31,10 @@ pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
                 let messages2 = parser.parse_messages_from_file(file_to_diff)?;
 
                 for m2 in messages2.iter() {
-                    if let Some(m1) = map.get(&m2.to_key()) {
-                        if **m1 == *m2 {
-                            println!("{m2}");
-                        }
+                    if let Some(m1) = map.get(&m2.to_key())
+                        && **m1 == *m2
+                    {
+                        println!("{m2}");
                     }
                 }
             }

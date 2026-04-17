@@ -22,10 +22,10 @@ pub fn command_print_with_word(parser: &Parser, cmdline: &[&str]) -> Result<()> 
 
                     if message.msgid.to_lowercase().contains(&keyword) {
                         println!("{message}");
-                    } else if let Some(ref msgid_plural) = message.msgid_plural {
-                        if msgid_plural.to_lowercase().contains(&keyword) {
-                            println!("{message}");
-                        }
+                    } else if let Some(ref msgid_plural) = message.msgid_plural
+                        && msgid_plural.to_lowercase().contains(&keyword)
+                    {
+                        println!("{message}");
                     }
                 }
             }

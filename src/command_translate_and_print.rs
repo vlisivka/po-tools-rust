@@ -135,16 +135,16 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
                 .replace("{file}", file)
                 .replace("{count}", &messages.len().to_string())
         );
-        translate_and_print(
+        let config = TranslateConfig {
             aichat_command,
-            &aichat_options,
+            aichat_options: &aichat_options,
             language,
-            parser.number_of_plural_cases,
-            &messages,
-            &tm_messages,
-            &dictionaries,
+            number_of_plural_cases: parser.number_of_plural_cases,
+            tm_messages: &tm_messages,
+            dictionaries: &dictionaries,
             debug,
-        )?;
+        };
+        translate_and_print(&config, &messages)?;
     }
 
     Ok(())
@@ -170,47 +170,30 @@ fn find_fuzzy_matches<'a>(message: &PoMessage, tm_messages: &'a [PoMessage]) -> 
     matches.into_iter().take(5).map(|(_, msg)| msg).collect()
 }
 
-fn translate_and_print(
-    aichat_command: &str,
-    aichat_options: &[&str],
-    language: &str,
+struct TranslateConfig<'a> {
+    aichat_command: &'a str,
+    aichat_options: &'a [&'a str],
+    language: &'a str,
     number_of_plural_cases: Option<usize>,
-    messages: &[PoMessage],
-    tm_messages: &[PoMessage],
-    dictionaries: &[Dictionary],
+    tm_messages: &'a [PoMessage],
+    dictionaries: &'a [Dictionary],
     debug: bool,
-) -> Result<()> {
+}
+
+fn translate_and_print(config: &TranslateConfig, messages: &[PoMessage]) -> Result<()> {
     for message in messages {
         if message.is_header() {
             println!("{message}");
         } else {
-            translate_single_message(
-                message,
-                aichat_command,
-                aichat_options,
-                language,
-                number_of_plural_cases,
-                tm_messages,
-                dictionaries,
-                debug,
-            )?;
+            translate_single_message(config, message)?;
         }
     }
 
     Ok(())
 }
 
-fn translate_single_message(
-    message: &PoMessage,
-    aichat_command: &str,
-    aichat_options: &[&str],
-    language: &str,
-    number_of_plural_cases: Option<usize>,
-    tm_messages: &[PoMessage],
-    dictionaries: &[Dictionary],
-    debug: bool,
-) -> Result<()> {
-    let fuzzy_matches = find_fuzzy_matches(message, tm_messages);
+fn translate_single_message(config: &TranslateConfig, message: &PoMessage) -> Result<()> {
+    let fuzzy_matches = find_fuzzy_matches(message, config.tm_messages);
     let fuzzy_match_text = if !fuzzy_matches.is_empty() {
         let mut text = format!(
             "<context>\n{}:\n",
@@ -230,7 +213,7 @@ fn translate_single_message(
     let mut seen_keys = HashSet::new();
 
     if !message.is_header() {
-        for dict in dictionaries {
+        for dict in config.dictionaries {
             for entry in dict.find_matches(&message.msgid) {
                 if seen_keys.insert(&entry.key) {
                     dict_context.push_str(&format!("- {} - {}\n", entry.key, entry.translation));
@@ -279,10 +262,11 @@ Produce only the {language} translation, without any additional explanations or 
 </message>
 
 {example}
-"#
+"#,
+        language = config.language
     );
 
-    if debug {
+    if config.debug {
         eprintln!(
             "----{}-----------------------------------------------------------",
             tr!("Message to aichat")
@@ -295,9 +279,10 @@ Produce only the {language} translation, without any additional explanations or 
     }
 
     // Translate
-    let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
+    let new_message_text =
+        pipe_to_command(config.aichat_command, config.aichat_options, &message_text)?;
 
-    if debug {
+    if config.debug {
         eprintln!(
             "----{}-----------------------------------------------------------",
             tr!("Reply from aichat")
@@ -325,9 +310,9 @@ Produce only the {language} translation, without any additional explanations or 
 
     let parser = Parser {
         number_of_plural_cases: if is_plural {
-            Some(number_of_plural_cases.unwrap_or(2))
+            Some(config.number_of_plural_cases.unwrap_or(2))
         } else {
-            number_of_plural_cases
+            config.number_of_plural_cases
         },
         ignore_garbage_after_msgstr: true,
     };
