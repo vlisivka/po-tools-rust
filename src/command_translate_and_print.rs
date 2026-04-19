@@ -244,6 +244,10 @@ msgstr[2] "%s нових латок,"
     // Translation template
     let message_text = format!(
         r#"
+{dict_context}
+
+{fuzzy_match_text}
+
 <instruction>
 IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
 IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
@@ -252,10 +256,6 @@ IMPORTANT: Prefer translations proposed by dictionary.
 You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
 Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
 </instruction>
-
-{dict_context}
-
-{fuzzy_match_text}
 
 <message>
 {message}
@@ -294,18 +294,26 @@ Produce only the {language} translation, without any additional explanations or 
         );
     }
 
-    // Extract text between <message> and </message>, if they are present
-    let new_message_text_slice = if let (Some(start), Some(end)) = (
-        new_message_text.find("<message>"),
-        new_message_text.find("</message>"),
-    ) {
-        let tag_len = "<message>".len();
-        &new_message_text[(start + tag_len)..end]
-    } else if let Some(start) = new_message_text.find("msgid ") {
-        // Fallback for non-compliant AI output
+    let new_message_text_cleaned = if let Some(start) = new_message_text.rfind("</think>") {
+        // Skip thinking output from reasoning models
         &new_message_text[start..]
     } else {
         &new_message_text[..]
+    };
+
+    let new_message_text_slice = if let (Some(start), Some(end)) = (
+        new_message_text_cleaned.rfind("<message>"),
+        new_message_text_cleaned.rfind("</message>"),
+    ) {
+        // Extract text between <message> and </message>, if they are present
+        let tag_len = "<message>".len();
+        &new_message_text_cleaned[(start + tag_len)..end]
+    } else if let Some(start) = new_message_text_cleaned.rfind("msgid ") {
+        // Unwrapped message found
+        &new_message_text_cleaned[start..]
+    } else {
+        // Message not found
+        new_message_text_cleaned
     };
 
     let parser = Parser {
