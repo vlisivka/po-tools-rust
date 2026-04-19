@@ -54,9 +54,10 @@ mod command_compare_files_and_print;
 use crate::command_compare_files_and_print::command_compare_files_and_print;
 
 mod command_translate_and_print;
-use crate::command_translate_and_print::{
-    command_review_files_and_print, command_translate_and_print,
-};
+use crate::command_translate_and_print::command_translate_and_print;
+
+mod command_review_files_and_print;
+use crate::command_review_files_and_print::command_review_files_and_print;
 
 mod command_erase_and_print;
 use crate::command_erase_and_print::command_erase_and_print;
