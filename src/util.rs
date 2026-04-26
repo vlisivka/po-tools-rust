@@ -14,6 +14,78 @@ pub struct IoContext<'a> {
     pub err: &'a mut dyn Write,
 }
 
+/// Backend for calling an AI model.
+#[derive(Debug, Clone)]
+pub struct AiBackend {
+    command: String,
+    args: Vec<String>,
+    mock_response: Option<String>,
+}
+
+impl AiBackend {
+    /// Create a new backend with a specific command and arguments.
+    #[allow(dead_code)]
+    pub fn new(command: String, args: Vec<String>) -> Self {
+        Self {
+            command,
+            args,
+            mock_response: None,
+        }
+    }
+
+    /// Create a backend from a full command line string (e.g., from --ai-command).
+    pub fn from_command_line(cmd: &str) -> Self {
+        let parts: Vec<String> = cmd.split_whitespace().map(|s| s.to_string()).collect();
+        if parts.is_empty() {
+            // Default to aichat if empty, though this shouldn't normally happen if parsed correctly
+            return Self::with_aichat_defaults("ollama:translategemma:12b", "translate-po", None);
+        }
+        Self {
+            command: parts[0].clone(),
+            args: parts[1..].to_vec(),
+            mock_response: None,
+        }
+    }
+
+    /// Create a backend for aichat with default options.
+    pub fn with_aichat_defaults(model: &str, role: &str, rag: Option<&str>) -> Self {
+        let mut args = vec![
+            "-r".to_string(),
+            role.to_string(),
+            "-m".to_string(),
+            model.to_string(),
+        ];
+        if let Some(rag_val) = rag {
+            args.push("--rag".to_string());
+            args.push(rag_val.to_string());
+        }
+        Self {
+            command: "aichat".to_string(),
+            args,
+            mock_response: None,
+        }
+    }
+
+    /// Create a mock backend for testing.
+    #[allow(dead_code)]
+    pub fn mock(response: &str) -> Self {
+        Self {
+            command: String::new(),
+            args: Vec::new(),
+            mock_response: Some(response.to_string()),
+        }
+    }
+
+    /// Executes the AI request.
+    pub fn execute(&self, prompt: &str) -> Result<String> {
+        if let Some(ref mock) = self.mock_response {
+            return Ok(mock.clone());
+        }
+        let args_ref: Vec<&str> = self.args.iter().map(|s| s.as_str()).collect();
+        pipe_to_command(&self.command, &args_ref, prompt)
+    }
+}
+
 /// Executes an external command, piping the given text to its stdin and capturing stdout.
 ///
 /// This is used extensively for interacting with AI tools like `aichat`.
@@ -135,5 +207,13 @@ mod tests {
         // false command always returns 1
         let result = pipe_to_command("false", &[], "test");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ai_backend_mock() -> Result<()> {
+        let backend = AiBackend::mock("custom response");
+        let result = backend.execute("any prompt")?;
+        assert_eq!(result, "custom response");
+        Ok(())
     }
 }

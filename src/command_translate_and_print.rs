@@ -5,7 +5,7 @@
 
 use crate::dictionary::Dictionary;
 use crate::parser::{Parser, PoMessage};
-use crate::util::{IoContext, pipe_to_command, validate_message};
+use crate::util::{AiBackend, IoContext, validate_message};
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
 use std::io::Write;
@@ -24,7 +24,7 @@ pub fn command_translate_and_print(
     let mut tm_file = "";
     let mut dictionary_files: Vec<&str> = Vec::new();
     let mut debug = false;
-    let aichat_command = "aichat";
+    let mut ai_command_str: Option<&str> = None;
 
     // Parse "translate" command options
     let mut cmdline = cmdline;
@@ -55,6 +55,11 @@ pub fn command_translate_and_print(
             ["--debug", ..] => {
                 debug = true;
                 cmdline = &cmdline[1..];
+            }
+
+            ["--ai-command", cmd, ..] => {
+                ai_command_str = Some(cmd);
+                cmdline = &cmdline[2..];
             }
 
             ["-r", role_name, ..] | ["--role", role_name, ..] => {
@@ -92,11 +97,11 @@ pub fn command_translate_and_print(
         ));
     }
 
-    let mut aichat_options = vec!["-r", role, "-m", model];
-    if !rag.is_empty() {
-        aichat_options.push("--rag");
-        aichat_options.push(rag);
-    }
+    let backend = if let Some(cmd) = ai_command_str {
+        AiBackend::from_command_line(cmd)
+    } else {
+        AiBackend::with_aichat_defaults(model, role, if rag.is_empty() { None } else { Some(rag) })
+    };
 
     let tm_messages = if !tm_file.is_empty() {
         let msgs = parser.parse_messages_from_file(tm_file).with_context(|| {
@@ -145,8 +150,7 @@ pub fn command_translate_and_print(
         )?;
 
         let config = TranslateConfig {
-            aichat_command,
-            aichat_options: &aichat_options,
+            backend: backend.clone(),
             language,
             number_of_plural_cases: parser.number_of_plural_cases,
             tm_messages: &tm_messages,
@@ -180,8 +184,7 @@ fn find_fuzzy_matches<'a>(message: &PoMessage, tm_messages: &'a [PoMessage]) -> 
 }
 
 struct TranslateConfig<'a> {
-    aichat_command: &'a str,
-    aichat_options: &'a [&'a str],
+    backend: AiBackend,
     language: &'a str,
     number_of_plural_cases: Option<usize>,
     tm_messages: &'a [PoMessage],
@@ -298,8 +301,7 @@ Produce only the {language} translation, without any additional explanations or 
     }
 
     // Translate
-    let new_message_text =
-        pipe_to_command(config.aichat_command, config.aichat_options, &message_text)?;
+    let new_message_text = config.backend.execute(&message_text)?;
 
     if config.debug {
         writeln!(
@@ -425,6 +427,9 @@ OPTIONS:
 
   -d | --dictionary FILE  TSV dictionary file to use for context. Can be used multiple times.
 
+  --ai-command COMMAND  Custom command to use for translation instead of aichat.
+                        Example: --ai-command "ollama run gemma3"
+
   --debug               Print inputs and outputs of AI models to stderr.
 "#
         )
@@ -435,9 +440,6 @@ OPTIONS:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn test_translate_positive() -> Result<()> {
@@ -449,20 +451,8 @@ mod tests {
         };
         let parser = Parser::new(None);
 
-        // Mock aichat: returns a valid PO message block
-        let mock_script = NamedTempFile::new()?;
-        fs::write(
-            mock_script.path(),
-            "#!/bin/sh\necho 'msgid \"a\"\nmsgstr \"translated_a\"'",
-        )?;
-        let mut perms = fs::metadata(mock_script.path())?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(mock_script.path(), perms)?;
-        let mock_script_path = mock_script.into_temp_path();
-
         let config = TranslateConfig {
-            aichat_command: mock_script_path.to_str().unwrap(),
-            aichat_options: &[],
+            backend: AiBackend::mock("msgid \"a\"\nmsgstr \"translated_a\""),
             language: "Ukrainian",
             number_of_plural_cases: None,
             tm_messages: &[],

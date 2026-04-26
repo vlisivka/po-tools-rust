@@ -6,10 +6,8 @@
 use std::io::Write;
 
 use crate::parser::{Parser, PoMessage};
-use crate::util::pipe_to_command;
+use crate::util::{AiBackend, IoContext};
 use anyhow::{Result, bail};
-
-use crate::util::IoContext;
 
 /// Implementation of the `filter` command.
 pub fn command_filter_with_ai_and_print(
@@ -21,7 +19,7 @@ pub fn command_filter_with_ai_and_print(
     let mut role = "po-review";
     let mut yes_only = false;
     let mut no_only = false;
-    let aichat_command = "aichat";
+    let mut ai_command_str: Option<&str> = None;
 
     // Parse "filter" command options
     let mut cmdline = cmdline;
@@ -45,6 +43,11 @@ pub fn command_filter_with_ai_and_print(
             ["-n", ..] | ["--no-only", ..] => {
                 no_only = true;
                 cmdline = &cmdline[1..];
+            }
+
+            ["--ai-command", cmd, ..] => {
+                ai_command_str = Some(cmd);
+                cmdline = &cmdline[2..];
             }
 
             ["-h", ..] | ["-help", ..] | ["--help", ..] => {
@@ -71,16 +74,15 @@ pub fn command_filter_with_ai_and_print(
         ));
     }
 
+    let backend = if let Some(cmd) = ai_command_str {
+        AiBackend::from_command_line(cmd)
+    } else {
+        AiBackend::with_aichat_defaults(model, role, None)
+    };
+
     for file in cmdline {
         let messages = parser.parse_messages_from_file(file)?;
-        filter_and_print(
-            ctx,
-            aichat_command,
-            &["-r", role, "-m", model],
-            yes_only,
-            no_only,
-            &messages,
-        )?;
+        filter_and_print(ctx, backend.clone(), yes_only, no_only, &messages)?;
     }
 
     Ok(())
@@ -88,8 +90,7 @@ pub fn command_filter_with_ai_and_print(
 
 fn filter_and_print(
     ctx: &mut IoContext,
-    aichat_command: &str,
-    aichat_options: &[&str],
+    backend: AiBackend,
     yes_only: bool,
     no_only: bool,
     messages: &[PoMessage],
@@ -107,8 +108,7 @@ fn filter_and_print(
 "#
             );
 
-            // Review
-            let reply_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
+            let reply_text = backend.execute(&message_text)?;
 
             // Extract text between <reply> and </reply>, if they are present
             //        let reply_text_slice = if let (Some(start), Some(end)) = (reply_text.find("<reply>"), reply_text.find("</reply")) {
@@ -154,6 +154,8 @@ OPTIONS:
                         For better reproducibility, set temperature and top_p to 0, to remove randomness.
   -y | --yes-only       Print messages with <reply>yes</reply> only.
   -n | --no-only        Print messages with <reply>no</reply> only.
+  --ai-command COMMAND  Custom command to use for filtering instead of aichat.
+                        Example: --ai-command "ollama run gemma3"
 "#
         )
     )?;
@@ -163,9 +165,6 @@ OPTIONS:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn test_filter_positive_yes() -> Result<()> {
@@ -177,27 +176,14 @@ mod tests {
         };
         let parser = Parser::new(None);
 
-        // Create a mock aichat script that always returns "yes"
-        let mock_script = NamedTempFile::new()?;
-        fs::write(mock_script.path(), "#!/bin/sh\necho -n yes")?;
-        let mut perms = fs::metadata(mock_script.path())?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(mock_script.path(), perms)?;
-        let mock_script_path = mock_script.into_temp_path();
+        let m = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"b\"\n")?;
 
-        let f = NamedTempFile::new()?;
-        fs::write(f.path(), "msgid \"a\"\nmsgstr \"b\"\n")?;
-
-        // We need to override the command name.
-        // Let's refactor the command to allow this or just use filter_and_print directly for the test.
-        let messages = parser.parse_messages_from_file(f.path().to_str().unwrap())?;
         filter_and_print(
             &mut ctx,
-            mock_script_path.to_str().unwrap(),
-            &[],
+            AiBackend::mock("yes"),
             true, // yes_only
             false,
-            &messages,
+            &[m],
         )?;
 
         let result = String::from_utf8(out)?;
@@ -216,24 +202,14 @@ mod tests {
         };
         let parser = Parser::new(None);
 
-        let mock_script = NamedTempFile::new()?;
-        fs::write(mock_script.path(), "#!/bin/sh\necho -n no")?;
-        let mut perms = fs::metadata(mock_script.path())?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(mock_script.path(), perms)?;
-        let mock_script_path = mock_script.into_temp_path();
+        let m = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"b\"\n")?;
 
-        let f = NamedTempFile::new()?;
-        fs::write(f.path(), "msgid \"a\"\nmsgstr \"b\"\n")?;
-
-        let messages = parser.parse_messages_from_file(f.path().to_str().unwrap())?;
         filter_and_print(
             &mut ctx,
-            mock_script_path.to_str().unwrap(),
-            &[],
+            AiBackend::mock("no"),
             true, // yes_only
             false,
-            &messages,
+            &[m],
         )?;
 
         let result = String::from_utf8(out)?;

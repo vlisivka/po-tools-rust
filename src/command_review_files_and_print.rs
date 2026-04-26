@@ -4,7 +4,7 @@
 //! and uses an AI model to pick or synthesize the best version.
 
 use crate::parser::{Parser, PoMessage};
-use crate::util::{IoContext, pipe_to_command, validate_message};
+use crate::util::{AiBackend, IoContext, validate_message};
 use anyhow::{Result, bail};
 use std::io::Write;
 
@@ -17,7 +17,7 @@ pub fn command_review_files_and_print(
     let mut language = "Ukrainian";
     let mut model = "ollama:translategemma:12b";
     let mut role = "translate-po";
-    let aichat_command = "aichat";
+    let mut ai_command_str: Option<&str> = None;
 
     // Parse "translate" command options
     let mut cmdline = cmdline;
@@ -39,6 +39,11 @@ pub fn command_review_files_and_print(
             | ["--lang", lang_name, ref tail @ ..]
             | ["--language", lang_name, ref tail @ ..] => {
                 language = lang_name;
+                cmdline = tail;
+            }
+
+            ["--ai-command", cmd, ref tail @ ..] => {
+                ai_command_str = Some(cmd);
                 cmdline = tail;
             }
 
@@ -73,10 +78,15 @@ pub fn command_review_files_and_print(
         messages.push(file_messages);
     }
 
+    let backend = if let Some(cmd) = ai_command_str {
+        AiBackend::from_command_line(cmd)
+    } else {
+        AiBackend::with_aichat_defaults(model, role, None)
+    };
+
     review_files_and_print(
         ctx,
-        aichat_command,
-        &["-r", role, "-m", model],
+        backend,
         language,
         parser.number_of_plural_cases,
         messages,
@@ -87,8 +97,7 @@ pub fn command_review_files_and_print(
 
 fn review_files_and_print(
     ctx: &mut IoContext,
-    aichat_command: &str,
-    aichat_options: &[&str],
+    backend: AiBackend,
     language: &str,
     number_of_plural_cases: Option<usize>,
     mut messages: Vec<Vec<PoMessage>>,
@@ -168,7 +177,7 @@ IMPORTANT: Start with "<message> msgid ".
         //eprintln!("{message_text}");
 
         // Translate
-        let new_message_text = pipe_to_command(aichat_command, aichat_options, &message_text)?;
+        let new_message_text = backend.execute(&message_text)?;
         //eprintln!("# Review:\n{new_message_text}\n");
 
         // Extract text between <message> and </message>, if they are present
@@ -246,6 +255,9 @@ OPTIONS:
 
   -r | --role ROLE      AI role to use with aichat.  Default value: "translate-po".
                         For better reproducibility, set temperature and top_p to 0, to remove randomness.
+
+  --ai-command COMMAND  Custom command to use for review instead of aichat.
+                        Example: --ai-command "ollama run gemma3"
 "#
         )
     )?;
@@ -255,9 +267,6 @@ OPTIONS:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn test_review_positive() -> Result<()> {
@@ -269,33 +278,14 @@ mod tests {
         };
         let parser = Parser::new(None);
 
-        // Mock aichat: returns a valid PO message block wrapped in <message>
-        let mock_script = NamedTempFile::new()?;
-        fs::write(
-            mock_script.path(),
-            "#!/bin/sh\necho '<message>msgid \"a\"\nmsgstr \"reviewed_a\"</message>'",
-        )?;
-        let mut perms = fs::metadata(mock_script.path())?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(mock_script.path(), perms)?;
-        let mock_script_path = mock_script.into_temp_path();
+        let m1 = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"v1\"\n")?;
+        let m2 = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"v2\"\n")?;
 
-        let f1 = NamedTempFile::new()?;
-        fs::write(f1.path(), "msgid \"a\"\nmsgstr \"v1\"\n")?;
-
-        let f2 = NamedTempFile::new()?;
-        fs::write(f2.path(), "msgid \"a\"\nmsgstr \"v2\"\n")?;
-
-        // We use review_files_and_print directly to override aichat_command easily
-        let messages = vec![
-            parser.parse_messages_from_file(f1.path().to_str().unwrap())?,
-            parser.parse_messages_from_file(f2.path().to_str().unwrap())?,
-        ];
+        let messages = vec![vec![m1], vec![m2]];
 
         review_files_and_print(
             &mut ctx,
-            mock_script_path.to_str().unwrap(), // override aichat_command
-            &[],
+            AiBackend::mock("<message>msgid \"a\"\nmsgstr \"reviewed_a\"</message>"),
             "Ukrainian",
             None,
             messages,
