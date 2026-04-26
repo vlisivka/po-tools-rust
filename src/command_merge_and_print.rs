@@ -49,3 +49,70 @@ pub fn command_merge_and_print(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_merge_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f1 = NamedTempFile::new()?;
+        fs::write(f1.path(), "msgid \"a\"\nmsgstr \"old\"\n")?;
+
+        let f2 = NamedTempFile::new()?;
+        fs::write(f2.path(), "msgid \"a\"\nmsgstr \"new\"\n")?;
+
+        command_merge_and_print(
+            &parser,
+            &[f1.path().to_str().unwrap(), f2.path().to_str().unwrap()],
+            &mut ctx,
+        )?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgstr \"new\""));
+        assert!(!result.contains("msgstr \"old\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_merge_and_print(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_missing_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_merge_and_print(&parser, &["file1.po"], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

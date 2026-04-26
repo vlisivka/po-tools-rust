@@ -74,4 +74,37 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_sort_and_print(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_sort_and_print(&parser, &[], &mut ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("is required"));
+        Ok(())
+    }
 }

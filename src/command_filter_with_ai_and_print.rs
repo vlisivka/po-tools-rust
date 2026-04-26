@@ -159,3 +159,118 @@ OPTIONS:
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_filter_positive_yes() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        // Create a mock aichat script that always returns "yes"
+        let mock_script = NamedTempFile::new()?;
+        fs::write(mock_script.path(), "#!/bin/sh\necho -n yes")?;
+        let mut perms = fs::metadata(mock_script.path())?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(mock_script.path(), perms)?;
+        let mock_script_path = mock_script.into_temp_path();
+
+        let f = NamedTempFile::new()?;
+        fs::write(f.path(), "msgid \"a\"\nmsgstr \"b\"\n")?;
+
+        // We need to override the command name.
+        // Let's refactor the command to allow this or just use filter_and_print directly for the test.
+        let messages = parser.parse_messages_from_file(f.path().to_str().unwrap())?;
+        filter_and_print(
+            &mut ctx,
+            mock_script_path.to_str().unwrap(),
+            &[],
+            true, // yes_only
+            false,
+            &messages,
+        )?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Review: yes"));
+        assert!(result.contains("msgid \"a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_positive_no_filtered_out() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let mock_script = NamedTempFile::new()?;
+        fs::write(mock_script.path(), "#!/bin/sh\necho -n no")?;
+        let mut perms = fs::metadata(mock_script.path())?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(mock_script.path(), perms)?;
+        let mock_script_path = mock_script.into_temp_path();
+
+        let f = NamedTempFile::new()?;
+        fs::write(f.path(), "msgid \"a\"\nmsgstr \"b\"\n")?;
+
+        let messages = parser.parse_messages_from_file(f.path().to_str().unwrap())?;
+        filter_and_print(
+            &mut ctx,
+            mock_script_path.to_str().unwrap(),
+            &[],
+            true, // yes_only
+            false,
+            &messages,
+        )?;
+
+        let result = String::from_utf8(out)?;
+        // Header should be there, but not the message
+        assert!(!result.contains("msgid \"a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_filter_with_ai_and_print(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_filter_with_ai_and_print(&parser, &[], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

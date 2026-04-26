@@ -251,3 +251,91 @@ OPTIONS:
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_review_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        // Mock aichat: returns a valid PO message block wrapped in <message>
+        let mock_script = NamedTempFile::new()?;
+        fs::write(
+            mock_script.path(),
+            "#!/bin/sh\necho '<message>msgid \"a\"\nmsgstr \"reviewed_a\"</message>'",
+        )?;
+        let mut perms = fs::metadata(mock_script.path())?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(mock_script.path(), perms)?;
+        let mock_script_path = mock_script.into_temp_path();
+
+        let f1 = NamedTempFile::new()?;
+        fs::write(f1.path(), "msgid \"a\"\nmsgstr \"v1\"\n")?;
+
+        let f2 = NamedTempFile::new()?;
+        fs::write(f2.path(), "msgid \"a\"\nmsgstr \"v2\"\n")?;
+
+        // We use review_files_and_print directly to override aichat_command easily
+        let messages = vec![
+            parser.parse_messages_from_file(f1.path().to_str().unwrap())?,
+            parser.parse_messages_from_file(f2.path().to_str().unwrap())?,
+        ];
+
+        review_files_and_print(
+            &mut ctx,
+            mock_script_path.to_str().unwrap(), // override aichat_command
+            &[],
+            "Ukrainian",
+            None,
+            messages,
+        )?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"a\""));
+        assert!(result.contains("msgstr \"reviewed_a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_review_files_and_print(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_review_files_and_print(&parser, &[], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

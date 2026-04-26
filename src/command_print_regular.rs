@@ -28,3 +28,66 @@ pub fn command_print_regular(parser: &Parser, cmdline: &[&str], ctx: &mut IoCont
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_regular_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f = NamedTempFile::new()?;
+        fs::write(
+            f.path(),
+            "msgid \"a\"\nmsgstr \"b\"\n\nmsgid \"c\"\nmsgid_plural \"d\"\nmsgstr[0] \"\"\n",
+        )?;
+
+        command_print_regular(&parser, &[f.path().to_str().unwrap()], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"a\""));
+        assert!(!result.contains("msgid \"c\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_print_regular(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_print_regular(&parser, &[], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

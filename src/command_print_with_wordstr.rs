@@ -42,3 +42,66 @@ pub fn command_print_with_wordstr(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_with_wordstr_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f = NamedTempFile::new()?;
+        fs::write(
+            f.path(),
+            "msgid \"a\"\nmsgstr \"HELLO world\"\n\nmsgid \"b\"\nmsgstr \"bye\"\n",
+        )?;
+
+        command_print_with_wordstr(&parser, &["HELLO", f.path().to_str().unwrap()], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("HELLO world"));
+        assert!(!result.contains("bye"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_print_with_wordstr(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_print_with_wordstr(&parser, &["keyword"], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

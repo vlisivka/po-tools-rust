@@ -68,3 +68,100 @@ Parse a PO file and dump to standard output for debugging.
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_parse_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f = NamedTempFile::new()?;
+        fs::write(f.path(), "msgid \"a\"\nmsgstr \"b\"\n")?;
+
+        command_parse_and_dump(&parser, &[f.path().to_str().unwrap()], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid: \"a\""));
+        assert!(result.contains("msgstr: [\"b\"]"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_multiline() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f = NamedTempFile::new()?;
+        fs::write(f.path(), "msgid \"a\"\nmsgstr \"b\"\n")?;
+
+        command_parse_and_dump(&parser, &["-m", f.path().to_str().unwrap()], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        // Debug {:#?} format includes newlines
+        assert!(result.contains("\n"));
+        assert!(result.contains("msgid: \"a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_parse_and_dump(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_unknown_option() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_parse_and_dump(&parser, &["--invalid"], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_parse_and_dump(&parser, &[], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

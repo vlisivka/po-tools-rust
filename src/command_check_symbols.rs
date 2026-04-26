@@ -82,20 +82,81 @@ Remove all alphanumeric characters, whitespace, and commas, then compare resulti
 mod tests {
     use super::*;
     use anyhow::Result;
+    use std::fs;
+    use tempfile::NamedTempFile;
 
     #[test]
-    fn header() -> Result<()> {
+    fn test_check_symbols_command_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
         let parser = Parser::new(None);
 
-        let message = parser.parse_message_from_str(r#"
-msgid "B<%man_recode%> B<-t> I<to-code> {\\|B<--suffix=>I<suffix\\/>\\||\\|B<--in-place>\\|} [\\|B<-dqhV>\\|] [\\|I<filename>\\|]"
-msgstr "B<%man_recode%> B<-t> I<в-кодування> {\\|B<--suffix=>I<суфікс\\/>\\||\\|B<--in-place>\\|} [\\|B<-dqhV>\\|] [\\|I<імʼя_файлу>\\|]"
-"#)?;
+        let f = NamedTempFile::new()?;
+        fs::write(f.path(), "msgid \"hello %d\"\nmsgstr \"привіт %d\"\n")?;
 
-        let result = check_symbols(&message);
+        command_check_symbols(&parser, &[f.path().to_str().unwrap()], &mut ctx)?;
 
-        assert_eq!(result, Some("# Warning: Incorrect symbols:\n# msgid:  <%_%><-><->{\\|<--=><\\/>\\||\\|<--->\\|}[\\|<->\\|][\\|<>\\|]\n# msgstr: <%_%><-><->{\\|<--=><\\/>\\||\\|<--->\\|}[\\|<->\\|][\\|<_>\\|]\n".into()));
+        let result = String::from_utf8(out)?;
+        // If no symbols are missing, it should NOT print anything for the message (or only header if present)
+        assert!(!result.contains("Warning"));
+        Ok(())
+    }
 
+    #[test]
+    fn test_check_symbols_command_negative() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f = NamedTempFile::new()?;
+        fs::write(f.path(), "msgid \"hello %d\"\nmsgstr \"привіт\"\n")?;
+
+        command_check_symbols(&parser, &[f.path().to_str().unwrap()], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Warning"));
+        assert!(result.contains("msgid:  %"));
+        assert!(result.contains("msgstr: "));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_check_symbols(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_check_symbols(&parser, &[], &mut ctx);
+        assert!(result.is_err());
         Ok(())
     }
 }

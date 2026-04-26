@@ -32,3 +32,66 @@ pub fn command_print_untranslated(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_untranslated_positive() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f = NamedTempFile::new()?;
+        fs::write(
+            f.path(),
+            "msgid \"a\"\nmsgstr \"b\"\n\nmsgid \"c\"\nmsgstr \"\"\n",
+        )?;
+
+        command_print_untranslated(&parser, &[f.path().to_str().unwrap()], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"c\""));
+        assert!(!result.contains("msgid \"a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_help() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        command_print_untranslated(&parser, &["--help"], &mut ctx)?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Usage:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_files() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let result = command_print_untranslated(&parser, &[], &mut ctx);
+        assert!(result.is_err());
+        Ok(())
+    }
+}

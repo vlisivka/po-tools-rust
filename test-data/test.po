@@ -16,3 +16,9 @@ msgstr ""
 
 msgid "Catalogue is buggy."
 msgstr ""
+
+#. "cap" here, used during speech output, is short for "capital".
+#. It is spoken just before an uppercase letter, e.g. "cap A".
+#: Programs/core.c:1095
+msgid "cap"
+msgstr ""
