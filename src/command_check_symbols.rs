@@ -3,7 +3,10 @@
 //! This module checks if symbols like `%d`, `{name}`, etc., are preserved
 //! in the translated strings.
 
+use std::io::Write;
+
 use crate::parser::{Parser, PoMessage};
+use crate::util::IoContext;
 use anyhow::{Result, bail};
 
 fn strip_non_symbols(s: &str) -> String {
@@ -40,9 +43,9 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
 }
 
 /// Implementation of the `check-symbols` command.
-pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_check_symbols(parser: &Parser, cmdline: &[&str], ctx: &mut IoContext) -> Result<()> {
     match cmdline {
-        ["-h", ..] | ["--help", ..] => help(),
+        ["-h", ..] | ["--help", ..] => help(ctx.out),
 
         files if !files.is_empty() => {
             for file in files {
@@ -50,9 +53,9 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
 
                 for message in messages.iter() {
                     if message.is_header() {
-                        println!("{message}");
+                        writeln!(ctx.out, "{message}")?;
                     } else if let Some(errors) = check_symbols(message) {
-                        println!("{errors}\n#, fuzzy\n{message}");
+                        writeln!(ctx.out, "{errors}\n#, fuzzy\n{message}")?;
                     }
                 }
             }
@@ -64,8 +67,9 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     Ok(())
 }
 
-fn help() {
-    println!(
+fn help(out: &mut dyn Write) {
+    let _ = writeln!(
+        out,
         "{}",
         tr!(r#"Usage: po-tools check-symbols FILE[...]
 

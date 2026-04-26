@@ -1,13 +1,18 @@
 //! Command to filter and print only translated messages from a PO file.
 
 use crate::parser::Parser;
+use crate::util::IoContext;
 use anyhow::{Result, bail};
 
 /// Implementation of the `translated` command.
-pub fn command_print_translated(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_translated(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("{}", tr!("Usage: po-tools translated FILE[...]"))
+            writeln!(ctx.out, "{}", tr!("Usage: po-tools translated FILE[...]"))?
         }
 
         files if !files.is_empty() => {
@@ -16,7 +21,7 @@ pub fn command_print_translated(parser: &Parser, cmdline: &[&str]) -> Result<()>
 
                 for message in messages.iter() {
                     if message.is_header() || message.is_translated() {
-                        println!("{message}");
+                        writeln!(ctx.out, "{message}")?;
                     }
                 }
             }

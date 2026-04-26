@@ -84,78 +84,83 @@ fn main() -> Result<()> {
     let tail = &args[1..].iter().map(|s| s as &str).collect::<Vec<&str>>();
     let mut tail = &tail[..];
 
+    let mut stdout = std::io::stdout();
+    let mut stderr = std::io::stderr();
+    let mut ctx = util::IoContext {
+        out: &mut stdout,
+        err: &mut stderr,
+    };
+
     // Parse options
     loop {
         match tail[..] {
-      [ "-c", n, ref rest @ ..] | [ "--cases", n, ref rest @ ..] => {
-        match n.parse::<usize>() {
-          Ok(n) if (1..10).contains(&n) => {
-            number_of_plural_cases = Some(n);
-            tail = rest;
-          }
-          _ => bail!(
-            tr!("Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{value}\".")
-              .replace("{value}", n)
-          ),
-        }
-      }
+            ["-c", n, ref rest @ ..] | ["--cases", n, ref rest @ ..] => {
+                match n.parse::<usize>() {
+                    Ok(n) if (1..10).contains(&n) => {
+                        number_of_plural_cases = Some(n);
+                        tail = rest;
+                    }
+                    _ => bail!(tr!("Invalid argument for -c | --cases option. Expected: number of plural cases between 1 and 9. Actual value: \"{value}\".")
+              .replace("{value}", n)),
+                }
+            }
 
-      [ "-h", .. ] | [ "-help", .. ] | [ "--help", .. ] => {
-        help();
-        return Ok(());
-      }
-      [ "--", ref rest @ .. ] => {
-        tail = rest;
-        break;
-      }
-      [ arg, ..] if arg.starts_with('-') => bail!(
-        "{}",
-        tr!("Unknown option: \"{option}\". Use --help for list of options.").replace("{option}", arg)
-      ),
-      _ => break,
-    }
+            ["-h", ..] | ["--help", ..] => {
+                help(&mut ctx)?;
+                return Ok(());
+            }
+            ["--", ref rest @ ..] => {
+                tail = rest;
+                break;
+            }
+            [arg, ..] if arg.starts_with('-') => bail!(
+                "{}",
+                tr!("Unknown option: \"{option}\". Use --help for list of options.").replace("{option}", arg)
+            ),
+            _ => break,
+        }
     }
 
     let parser = Parser::new(number_of_plural_cases);
 
     // Parse arguments
     match tail[..] {
-        ["parse", ref cmdline @ ..] => command_parse_and_dump(&parser, cmdline)?,
-        ["translate", ref cmdline @ ..] => command_translate_and_print(&parser, cmdline)?,
-        ["erase", ref cmdline @ ..] => command_erase_and_print(&parser, cmdline)?,
-        ["review", ref cmdline @ ..] => command_review_files_and_print(&parser, cmdline)?,
-        ["compare", ref cmdline @ ..] => command_compare_files_and_print(&parser, cmdline)?,
-        ["sort", ref cmdline @ ..] => command_sort_and_print(&parser, cmdline)?,
-        ["merge", ref cmdline @ ..] => command_merge_and_print(&parser, cmdline)?,
-        ["diff", ref cmdline @ ..] => command_diff_by_id_and_print(&parser, cmdline)?,
-        ["diffstr", ref cmdline @ ..] => command_diff_by_str_and_print(&parser, cmdline)?,
-        ["same", ref cmdline @ ..] => command_find_same_and_print(&parser, cmdline)?,
-        ["added", ref cmdline @ ..] => command_print_added(&parser, cmdline)?,
-        ["removed", ref cmdline @ ..] => command_print_removed(&parser, cmdline)?,
-        ["translated", ref cmdline @ ..] => command_print_translated(&parser, cmdline)?,
-        ["untranslated", ref cmdline @ ..] => command_print_untranslated(&parser, cmdline)?,
-        ["regular", ref cmdline @ ..] => command_print_regular(&parser, cmdline)?,
-        ["plural", ref cmdline @ ..] => command_print_plural(&parser, cmdline)?,
-        ["with-context", ref cmdline @ ..] => command_print_with_context(&parser, cmdline)?,
-        ["with-word", ref cmdline @ ..] => command_print_with_word(&parser, cmdline)?,
-        ["with-wordstr", ref cmdline @ ..] => command_print_with_wordstr(&parser, cmdline)?,
-        ["with-unequal-linebreaks", ref cmdline @ ..] => {
-            command_print_with_unequal_linebreaks(&parser, cmdline)?
+        ["parse", ref cmdline @ ..] => command_parse_and_dump(&parser, cmdline, &mut ctx)?,
+        ["translate", ref cmdline @ ..] => command_translate_and_print(&parser, cmdline, &mut ctx)?,
+        ["erase", ref cmdline @ ..] => command_erase_and_print(&parser, cmdline, &mut ctx)?,
+        ["review", ref cmdline @ ..] => command_review_files_and_print(&parser, cmdline, &mut ctx)?,
+        ["compare", ref cmdline @ ..] => {
+            command_compare_files_and_print(&parser, cmdline, &mut ctx)?
         }
-        ["check-symbols", ref cmdline @ ..] => command_check_symbols(&parser, cmdline)?,
-        ["filter", ref cmdline @ ..] => command_filter_with_ai_and_print(&parser, cmdline)?,
+        ["sort", ref cmdline @ ..] => command_sort_and_print(&parser, cmdline, &mut ctx)?,
+        ["merge", ref cmdline @ ..] => command_merge_and_print(&parser, cmdline, &mut ctx)?,
+        ["diff", ref cmdline @ ..] => command_diff_by_id_and_print(&parser, cmdline, &mut ctx)?,
+        ["diffstr", ref cmdline @ ..] => command_diff_by_str_and_print(&parser, cmdline, &mut ctx)?,
+        ["same", ref cmdline @ ..] => command_find_same_and_print(&parser, cmdline, &mut ctx)?,
+        ["added", ref cmdline @ ..] => command_print_added(&parser, cmdline, &mut ctx)?,
+        ["removed", ref cmdline @ ..] => command_print_removed(&parser, cmdline, &mut ctx)?,
+        ["translated", ref cmdline @ ..] => command_print_translated(&parser, cmdline, &mut ctx)?,
+        ["untranslated", ref cmdline @ ..] => {
+            command_print_untranslated(&parser, cmdline, &mut ctx)?
+        }
+        ["regular", ref cmdline @ ..] => command_print_regular(&parser, cmdline, &mut ctx)?,
+        ["plural", ref cmdline @ ..] => command_print_plural(&parser, cmdline, &mut ctx)?,
+        ["with-context", ref cmdline @ ..] => {
+            command_print_with_context(&parser, cmdline, &mut ctx)?
+        }
+        ["with-word", ref cmdline @ ..] => command_print_with_word(&parser, cmdline, &mut ctx)?,
+        ["with-wordstr", ref cmdline @ ..] => {
+            command_print_with_wordstr(&parser, cmdline, &mut ctx)?
+        }
+        ["with-unequal-linebreaks", ref cmdline @ ..] => {
+            command_print_with_unequal_linebreaks(&parser, cmdline, &mut ctx)?
+        }
+        ["check-symbols", ref cmdline @ ..] => command_check_symbols(&parser, cmdline, &mut ctx)?,
+        ["filter", ref cmdline @ ..] => {
+            command_filter_with_ai_and_print(&parser, cmdline, &mut ctx)?
+        }
 
-        // TODO: Parse comments to support fuzzy messages
-        // TODO: dictionary. If message contains a word from the dictionary, then add dictionary record as a hint for AI
-        // TODO: sort messages by size, by msgstr, by first letter, by first special symbol, etc.
-        // TODO: split large po file into smaller chunks
-        // TODO: check: spaces at beginning/ending of msgstr as in msgid
-        // TODO: check: capital letter at beginning of msgs as in msgid
-        // TODO: filter: without words
-        // TODO: try to fix messages after an problem with message is found after translation or review
-        // TODO: multiline/singleline
-        // TODO: check: spelling
-        ["help", ..] | [] => help(),
+        ["help", ..] | [] => help(&mut ctx)?,
         [arg, ..] => bail!(
             "{}",
             tr!("Unknown command: \"{command}\". Use --help for list of commands.")
@@ -166,8 +171,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn help() {
-    println!(
+fn help(ctx: &mut util::IoContext) -> Result<()> {
+    writeln!(
+        ctx.out,
         "{}",
         tr!(
             r#"Usage: po-tools [OPTIONS] [--] COMMAND [COMMAND_OPTIONS] [--] [COMMAND_ARGUMENTS]
@@ -206,5 +212,6 @@ OPTIONS
   -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has fewer than PLURAL_CASES, then empty ones will be added.
 "#
         )
-    );
+    )?;
+    Ok(())
 }

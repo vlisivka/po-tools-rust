@@ -4,14 +4,19 @@
 //! in the first file.
 
 use crate::parser::{Parser, PoMessage};
+use crate::util::IoContext;
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 /// Implementation of the `merge` command.
-pub fn command_merge_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_merge_and_print(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("{}", tr!("Usage: po-tools merge FILE1 FILE2[...]"))
+            writeln!(ctx.out, "{}", tr!("Usage: po-tools merge FILE1 FILE2[...]"))?
         }
 
         [orig_file, files_to_merge @ ..] if !files_to_merge.is_empty() => {
@@ -34,7 +39,9 @@ pub fn command_merge_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> 
             let mut vec = map.into_values().collect::<Vec<PoMessage>>();
             vec.sort();
 
-            vec.iter().for_each(|m| println!("{m}"));
+            for m in vec {
+                writeln!(ctx.out, "{m}")?;
+            }
         }
 
         _ => bail!(tr!("At least two files are required.")),

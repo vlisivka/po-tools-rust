@@ -1,13 +1,18 @@
 //! Command to filter and print only messages with context (msgctxt) from a PO file.
 
 use crate::parser::Parser;
+use crate::util::IoContext;
 use anyhow::{Result, bail};
 
 /// Implementation of the `with-context` command.
-pub fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_print_with_context(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     match cmdline {
         ["-h", ..] | ["--help", ..] => {
-            println!("{}", tr!("Usage: po-tools with-context FILE[...]"))
+            writeln!(ctx.out, "{}", tr!("Usage: po-tools with-context FILE[...]"))?
         }
 
         files if !files.is_empty() => {
@@ -16,7 +21,7 @@ pub fn command_print_with_context(parser: &Parser, cmdline: &[&str]) -> Result<(
 
                 for message in messages.iter() {
                     if message.has_context() {
-                        println!("{message}")
+                        writeln!(ctx.out, "{message}")?;
                     }
                 }
             }

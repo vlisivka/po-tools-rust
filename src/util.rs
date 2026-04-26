@@ -6,6 +6,13 @@
 use crate::command_check_symbols::check_symbols;
 use crate::parser::PoMessage;
 use anyhow::{Context, Result, bail};
+use std::io::Write;
+
+/// Context for I/O operations, allowing for testable output and error streams.
+pub struct IoContext<'a> {
+    pub out: &'a mut dyn Write,
+    pub err: &'a mut dyn Write,
+}
 
 /// Executes an external command, piping the given text to its stdin and capturing stdout.
 ///

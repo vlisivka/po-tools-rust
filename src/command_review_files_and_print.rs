@@ -4,11 +4,16 @@
 //! and uses an AI model to pick or synthesize the best version.
 
 use crate::parser::{Parser, PoMessage};
-use crate::util::{pipe_to_command, validate_message};
+use crate::util::{IoContext, pipe_to_command, validate_message};
 use anyhow::{Result, bail};
+use std::io::Write;
 
 /// Implementation of the `review` command.
-pub fn command_review_files_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_review_files_and_print(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     let mut language = "Ukrainian";
     let mut model = "ollama:translategemma:12b";
     let mut role = "translate-po";
@@ -38,7 +43,7 @@ pub fn command_review_files_and_print(parser: &Parser, cmdline: &[&str]) -> Resu
             }
 
             ["-h", ..] | ["-help", ..] | ["--help", ..] => {
-                help_review();
+                help_review(ctx.out)?;
                 return Ok(());
             }
             ["--", ref tail @ ..] => {
@@ -69,6 +74,7 @@ pub fn command_review_files_and_print(parser: &Parser, cmdline: &[&str]) -> Resu
     }
 
     review_files_and_print(
+        ctx,
         aichat_command,
         &["-r", role, "-m", model],
         language,
@@ -80,6 +86,7 @@ pub fn command_review_files_and_print(parser: &Parser, cmdline: &[&str]) -> Resu
 }
 
 fn review_files_and_print(
+    ctx: &mut IoContext,
     aichat_command: &str,
     aichat_options: &[&str],
     language: &str,
@@ -100,7 +107,11 @@ fn review_files_and_print(
     'outer: for (i, message) in head[0].iter().enumerate() {
         if !tail.iter().any(|msgs| msgs[i] != *message) {
             // All messages are same, skip review
-            println!("{}:\n{message}", tr!("# All translations are same"));
+            writeln!(
+                ctx.out,
+                "{}:\n{message}",
+                tr!("# All translations are same")
+            )?;
             continue 'outer;
         }
 
@@ -175,34 +186,39 @@ IMPORTANT: Start with "<message> msgid ".
             Ok(new_message) => {
                 let errors = validate_message(&new_message);
                 if message.to_key() == new_message.to_key() {
-                    println!(
+                    writeln!(
+                        ctx.out,
                         "{}:\n#{errors}#, fuzzy\n{new_message}",
                         tr!("# Reviewed message")
-                    );
+                    )?;
                 } else {
-                    eprintln!(
+                    writeln!(
+                        ctx.err,
                         "{}:\n{message}\n# {}:\n=====\n{new_message_text_slice}\n=====",
                         tr!("# ERROR: Wrong msgid field when trying to review"),
                         tr!("Review")
-                    );
-                    println!(
+                    )?;
+                    writeln!(
+                        ctx.out,
                         "{}:\n{errors}#, fuzzy\n{message}",
                         tr!("# Reviewed message (warning:wrong id after review)")
-                    );
+                    )?;
                 }
             }
 
             Err(e) => {
-                eprintln!(
+                writeln!(
+                    ctx.err,
                     "{}: {:#}:\n{message}\n# {}:\n=====\n{new_message_text_slice}\n=====",
                     tr!("# ERROR: Cannot parse review of message"),
                     e,
                     tr!("Review text")
-                );
-                println!(
+                )?;
+                writeln!(
+                    ctx.out,
                     "{}:\n#, fuzzy\n{message}",
                     tr!("#UNReviewed message (cannot parse review)")
-                );
+                )?;
             }
         }
     }
@@ -210,8 +226,9 @@ IMPORTANT: Start with "<message> msgid ".
     Ok(())
 }
 
-fn help_review() {
-    println!(
+fn help_review(out: &mut dyn Write) -> Result<()> {
+    writeln!(
+        out,
         "{}",
         tr!(
             r#"Usage: po-tools [GLOBAL_OPTIONS] review [OPTIONS] [--] FILE1 [FILE2...]
@@ -231,5 +248,6 @@ OPTIONS:
                         For better reproducibility, set temperature and top_p to 0, to remove randomness.
 "#
         )
-    );
+    )?;
+    Ok(())
 }

@@ -1,20 +1,20 @@
-//! Command to find messages that are identical across multiple PO files.
-//!
-//! This is useful for identifying common translations in a set of files.
-
 use crate::parser::{Parser, PoMessage};
+use crate::util::IoContext;
 use anyhow::{Result, bail};
 use std::collections::HashMap;
 
 /// Implementation of the `same` command.
-pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_find_same_and_print(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     match cmdline {
-        ["-h", ..] | ["--help", ..] => {
-            println!(
-                "{}",
-                tr!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
-            )
-        }
+        ["-h", ..] | ["--help", ..] => writeln!(
+            ctx.out,
+            "{}",
+            tr!("Usage: po-tools same ORIG_FILE FILE_TO_COMPARE[...]")
+        )?,
 
         [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
             let messages1 = parser.parse_messages_from_file(orig_file)?;
@@ -26,7 +26,7 @@ pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             }
 
             for file_to_diff in files_to_diff {
-                println!("{}: {file_to_diff}\n", tr!("# File"));
+                writeln!(ctx.out, "{}: {file_to_diff}\n", tr!("# File"))?;
 
                 let messages2 = parser.parse_messages_from_file(file_to_diff)?;
 
@@ -34,7 +34,7 @@ pub fn command_find_same_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
                     if let Some(m1) = map.get(&m2.to_key())
                         && **m1 == *m2
                     {
-                        println!("{m2}");
+                        writeln!(ctx.out, "{m2}")?;
                     }
                 }
             }

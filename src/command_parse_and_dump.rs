@@ -3,10 +3,16 @@
 //! This is useful for verifying that the parser is correctly reading a file.
 
 use crate::parser::Parser;
+use crate::util::IoContext;
 use anyhow::{Result, bail};
+use std::io::Write;
 
 /// Implementation of the `parse` command.
-pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_parse_and_dump(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     let mut multiline = false;
     let mut cmdline = cmdline;
 
@@ -18,7 +24,7 @@ pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
             }
 
             ["-h", ..] | ["-help", ..] | ["--help", ..] => {
-                help_parse();
+                help_parse(ctx.out)?;
                 return Ok(());
             }
             ["--", ..] => {
@@ -42,21 +48,23 @@ pub fn command_parse_and_dump(parser: &Parser, cmdline: &[&str]) -> Result<()> {
     for file in cmdline {
         let messages = parser.parse_messages_from_file(file)?;
         if multiline {
-            println!("{:#?}", messages);
+            writeln!(ctx.out, "{:#?}", messages)?;
         } else {
-            println!("{:?}", messages);
+            writeln!(ctx.out, "{:?}", messages)?;
         }
     }
 
     Ok(())
 }
 
-fn help_parse() {
-    println!(
+fn help_parse(out: &mut dyn Write) -> Result<()> {
+    writeln!(
+        out,
         "{}",
         tr!(r#"Usage: po-tools [OPTIONS] [--] parse [OPTIONS] FILE
 
 Parse a PO file and dump to standard output for debugging.
 "#)
-    );
+    )?;
+    Ok(())
 }

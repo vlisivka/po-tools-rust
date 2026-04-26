@@ -5,13 +5,18 @@
 
 use crate::dictionary::Dictionary;
 use crate::parser::{Parser, PoMessage};
-use crate::util::{pipe_to_command, validate_message};
+use crate::util::{IoContext, pipe_to_command, validate_message};
 use anyhow::{Context, Result, bail};
 use std::collections::HashSet;
+use std::io::Write;
 use strsim::normalized_levenshtein;
 
 /// Implementation of the `translate` command.
-pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_translate_and_print(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     let mut language = "Ukrainian";
     let mut model = "ollama:translategemma:12b";
     let mut role = "translate-po";
@@ -63,7 +68,7 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             }
 
             ["-h", ..] | ["-help", ..] | ["--help", ..] => {
-                help_translate();
+                help_translate(ctx.out)?;
                 return Ok(());
             }
             ["--", ..] => {
@@ -97,13 +102,14 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
         let msgs = parser.parse_messages_from_file(tm_file).with_context(|| {
             tr!("Cannot open file \"{file}\" with translation memory.").replace("{file}", tm_file)
         })?;
-        eprintln!(
+        writeln!(
+            ctx.err,
             "{}: {}",
             tr!("INFO"),
             tr!("Loaded {count} messages from \"{file}\" file with translation memory.")
                 .replace("{count}", &msgs.len().to_string())
                 .replace("{file}", tm_file)
-        );
+        )?;
         msgs
     } else {
         Vec::new()
@@ -114,13 +120,14 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
         let dict = Dictionary::from_file(dict_file).with_context(|| {
             tr!("Cannot open dictionary file \"{file}\".").replace("{file}", dict_file)
         })?;
-        eprintln!(
+        writeln!(
+            ctx.err,
             "{}: {}",
             tr!("INFO"),
             tr!("Loaded dictionary from {file} file ({count} entries).")
                 .replace("{file}", dict_file)
                 .replace("{count}", &dict.entries.len().to_string())
-        );
+        )?;
         dictionaries.push(dict);
     }
 
@@ -128,13 +135,15 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
         let messages = parser
             .parse_messages_from_file(file)
             .with_context(|| tr!("Cannot open file \"{}\" for translation.").replace("{}", file))?;
-        eprintln!(
+        writeln!(
+            ctx.err,
             "{}: {}",
             tr!("INFO"),
             tr!("Processing file {file}, found {count} messages")
                 .replace("{file}", file)
                 .replace("{count}", &messages.len().to_string())
-        );
+        )?;
+
         let config = TranslateConfig {
             aichat_command,
             aichat_options: &aichat_options,
@@ -144,7 +153,7 @@ pub fn command_translate_and_print(parser: &Parser, cmdline: &[&str]) -> Result<
             dictionaries: &dictionaries,
             debug,
         };
-        translate_and_print(&config, &messages)?;
+        translate_and_print(ctx, &config, &messages)?;
     }
 
     Ok(())
@@ -180,19 +189,27 @@ struct TranslateConfig<'a> {
     debug: bool,
 }
 
-fn translate_and_print(config: &TranslateConfig, messages: &[PoMessage]) -> Result<()> {
+fn translate_and_print(
+    ctx: &mut IoContext,
+    config: &TranslateConfig,
+    messages: &[PoMessage],
+) -> Result<()> {
     for message in messages {
         if message.is_header() {
-            println!("{message}");
+            writeln!(ctx.out, "{message}")?;
         } else {
-            translate_single_message(config, message)?;
+            translate_single_message(ctx, config, message)?;
         }
     }
 
     Ok(())
 }
 
-fn translate_single_message(config: &TranslateConfig, message: &PoMessage) -> Result<()> {
+fn translate_single_message(
+    ctx: &mut IoContext,
+    config: &TranslateConfig,
+    message: &PoMessage,
+) -> Result<()> {
     let fuzzy_matches = find_fuzzy_matches(message, config.tm_messages);
     let fuzzy_match_text = if !fuzzy_matches.is_empty() {
         let mut text = format!(
@@ -267,15 +284,17 @@ Produce only the {language} translation, without any additional explanations or 
     );
 
     if config.debug {
-        eprintln!(
+        writeln!(
+            ctx.err,
             "----{}-----------------------------------------------------------",
             tr!("Message to aichat")
-        );
-        eprintln!("{message_text}");
-        eprintln!(
+        )?;
+        writeln!(ctx.err, "{message_text}")?;
+        writeln!(
+            ctx.err,
             "----{}--------------------------------------------------------------",
             tr!("End of message")
-        );
+        )?;
     }
 
     // Translate
@@ -283,15 +302,17 @@ Produce only the {language} translation, without any additional explanations or 
         pipe_to_command(config.aichat_command, config.aichat_options, &message_text)?;
 
     if config.debug {
-        eprintln!(
+        writeln!(
+            ctx.err,
             "----{}-----------------------------------------------------------",
             tr!("Reply from aichat")
-        );
-        eprintln!("{new_message_text}");
-        eprintln!(
+        )?;
+        writeln!(ctx.err, "{new_message_text}")?;
+        writeln!(
+            ctx.err,
             "----{}----------------------------------------------------------------",
             tr!("End of reply")
-        );
+        )?;
     }
 
     let new_message_text_cleaned = if let Some(start) = new_message_text.rfind("</think>") {
@@ -332,12 +353,14 @@ Produce only the {language} translation, without any additional explanations or 
 
             if actual_key == result_key {
                 let errors = validate_message(&new_message);
-                println!(
+                writeln!(
+                    ctx.out,
                     "{}:\n#{errors}\n#, fuzzy\n{new_message}",
                     tr!("# Translated message")
-                );
+                )?;
             } else {
-                eprintln!(
+                writeln!(
+                    ctx.err,
                     "{}. {} = \"{}\"\n# {}:\n=====\n{new_message_text_slice}\n=====",
                     tr!(
                         "# WARNING: Wrong msgid field when trying to translate. Replacing wrong ID with correct id"
@@ -345,35 +368,39 @@ Produce only the {language} translation, without any additional explanations or 
                     tr!("Actual key"),
                     actual_key,
                     tr!("Raw translation text")
-                );
+                )?;
                 let fixed_message = new_message.with_key(&actual_key);
                 let errors = validate_message(&fixed_message);
-                println!(
+                writeln!(
+                    ctx.out,
                     "{}:\n#{errors}#, fuzzy\n{fixed_message}",
                     tr!("# Translated message (WARNING: wrong id after translation)")
-                );
+                )?;
             }
         }
 
         Err(e) => {
-            eprintln!(
+            writeln!(
+                ctx.err,
                 "{}: {:#}:\n{message}\n# {}:\n=====\n{new_message_text_slice}\n=====",
                 tr!("# ERROR: Cannot parse translation of message"),
                 e,
                 tr!("# Raw translation text")
-            );
-            println!(
+            )?;
+            writeln!(
+                ctx.out,
                 "{}:\n#, fuzzy\n{message}",
                 tr!("# UNTranslated message (cannot parse translation)")
-            );
+            )?;
         }
     }
 
     Ok(())
 }
 
-fn help_translate() {
-    println!(
+fn help_translate(out: &mut dyn Write) -> Result<()> {
+    writeln!(
+        out,
         "{}",
         tr!(
             r#"Usage: po-tools [GLOBAL_OPTIONS] translate [OPTIONS] [--] FILE
@@ -401,5 +428,6 @@ OPTIONS:
   --debug               Print inputs and outputs of AI models to stderr.
 "#
         )
-    );
+    )?;
+    Ok(())
 }

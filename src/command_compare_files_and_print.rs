@@ -4,10 +4,15 @@
 //! is translated in different files.
 
 use crate::parser::{Parser, PoMessage};
+use crate::util::IoContext;
 use anyhow::{Result, bail};
 
 /// Implementation of the `compare` command.
-pub fn command_compare_files_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_compare_files_and_print(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     let skip_same = true;
 
     if cmdline.len() < 2 {
@@ -29,12 +34,12 @@ pub fn command_compare_files_and_print(parser: &Parser, cmdline: &[&str]) -> Res
     'outer: for (i, m1) in head[0].iter().enumerate() {
         if skip_same && !tail.iter().any(|msgs| msgs[i] != *m1) {
             // All messages are same, skip them entirely
-            println!("{m1}");
+            writeln!(ctx.out, "{m1}")?;
             continue 'outer;
         }
 
         //print!("# Message #{i} Variant 1:\n{m1}");
-        print!("{}:\n{m1}", tr!("# Variant 1"));
+        write!(ctx.out, "{}:\n{m1}", tr!("# Variant 1"))?;
 
         let k1 = m1.to_key();
 
@@ -49,14 +54,15 @@ pub fn command_compare_files_and_print(parser: &Parser, cmdline: &[&str]) -> Res
                     .replace("{key2}", &format!("{k2}")));
             }
 
-            print!(
+            write!(
+                ctx.out,
                 "{}:\n{}",
                 tr!("# Variant {variant}").replace("{variant}", &j.to_string()),
                 msgs[i]
-            );
+            )?;
         }
 
-        println!();
+        writeln!(ctx.out)?;
     }
 
     Ok(())

@@ -3,12 +3,20 @@
 //! This command sends each message to an AI tool and filters the output
 //! based on the AI's response (e.g., "yes" or "no").
 
+use std::io::Write;
+
 use crate::parser::{Parser, PoMessage};
 use crate::util::pipe_to_command;
 use anyhow::{Result, bail};
 
+use crate::util::IoContext;
+
 /// Implementation of the `filter` command.
-pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Result<()> {
+pub fn command_filter_with_ai_and_print(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
     let mut model = "ollama:gemma3n:latest";
     let mut role = "po-review";
     let mut yes_only = false;
@@ -40,7 +48,7 @@ pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Re
             }
 
             ["-h", ..] | ["-help", ..] | ["--help", ..] => {
-                help();
+                help(ctx.out)?;
                 return Ok(());
             }
             ["--", ..] => {
@@ -66,6 +74,7 @@ pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Re
     for file in cmdline {
         let messages = parser.parse_messages_from_file(file)?;
         filter_and_print(
+            ctx,
             aichat_command,
             &["-r", role, "-m", model],
             yes_only,
@@ -78,6 +87,7 @@ pub fn command_filter_with_ai_and_print(parser: &Parser, cmdline: &[&str]) -> Re
 }
 
 fn filter_and_print(
+    ctx: &mut IoContext,
     aichat_command: &str,
     aichat_options: &[&str],
     yes_only: bool,
@@ -86,7 +96,7 @@ fn filter_and_print(
 ) -> Result<()> {
     for message in messages {
         if message.is_header() {
-            println!("{message}");
+            writeln!(ctx.out, "{message}")?;
         } else {
             // Filter template
             let message_text = format!(
@@ -111,11 +121,11 @@ fn filter_and_print(
 
             match (yes_only, no_only, reply_text_slice) {
                 (true, _, "yes") | (_, true, "no") => {
-                    println!("# Review: {reply_text_slice}\n#, fuzzy\n{message}");
+                    writeln!(ctx.out, "# Review: {reply_text_slice}\n#, fuzzy\n{message}")?;
                 }
                 (true, _, _) | (_, true, _) => {}
                 _ => {
-                    println!("# Review: {reply_text_slice}\n#, fuzzy\n{message}");
+                    writeln!(ctx.out, "# Review: {reply_text_slice}\n#, fuzzy\n{message}")?;
                 }
             }
         }
@@ -124,8 +134,9 @@ fn filter_and_print(
     Ok(())
 }
 
-fn help() {
-    println!(
+fn help(out: &mut dyn Write) -> Result<()> {
+    writeln!(
+        out,
         "{}",
         tr!(
             r#"Usage: po-tools [GLOBAL_OPTIONS] filter [OPTIONS] [--] FILE
@@ -145,5 +156,6 @@ OPTIONS:
   -n | --no-only        Print messages with <reply>no</reply> only.
 "#
         )
-    );
+    )?;
+    Ok(())
 }
