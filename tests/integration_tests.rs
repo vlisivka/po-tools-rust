@@ -32,7 +32,7 @@ fn test_merge_command() {
         .success();
 
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
-    assert!(stdout.contains("msgid  \"t1\""));
+    assert!(stdout.contains("msgid \"t1\""));
     assert!(stdout.contains("msgstr \"v2\""));
 }
 
@@ -51,8 +51,8 @@ fn test_sort_command() {
     let output = cmd.arg("sort").arg(f.path()).assert().success();
 
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
-    let id_a_pos = stdout.find("msgid  \"a\"").unwrap();
-    let id_b_pos = stdout.find("msgid  \"b\"").unwrap();
+    let id_a_pos = stdout.find("msgid \"a\"").unwrap();
+    let id_b_pos = stdout.find("msgid \"b\"").unwrap();
     assert!(id_a_pos < id_b_pos);
 }
 

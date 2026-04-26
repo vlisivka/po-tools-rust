@@ -250,7 +250,7 @@ msgstr[2] "%s нових латок,"
 
 <instruction>
 IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translations.
+IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translation.
 IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
 IMPORTANT: Prefer translations proposed by dictionary.
 You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
@@ -349,7 +349,7 @@ Produce only the {language} translation, without any additional explanations or 
                 let fixed_message = new_message.with_key(&actual_key);
                 let errors = validate_message(&fixed_message);
                 println!(
-                    "{}:\n#{errors}\n#, fuzzy\n{fixed_message}",
+                    "{}:\n#{errors}#, fuzzy\n{fixed_message}",
                     tr!("# Translated message (WARNING: wrong id after translation)")
                 );
             }

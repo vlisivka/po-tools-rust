@@ -172,7 +172,7 @@ impl std::fmt::Display for PoMessage {
             write!(
                 f,
                 "\
-          msgid  \"{msgid}\"\n\
+          msgid \"{msgid}\"\n\
           msgstr \"{msgstr}\"\n\
         "
             )
@@ -713,7 +713,7 @@ msgstr \"\"
     #[test]
     fn simple_message() {
         let orig = "\
-msgid  \"%d matching item\"
+msgid \"%d matching item\"
 msgstr \"%d відповідний елемент\"
 ";
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
@@ -741,7 +741,7 @@ msgstr \"%d відповідний елемент\"
     "та не відповідають вимогам до парольних фраз: %s."
 "#;
 
-        let expected = r#"msgid  ""
+        let expected = r#"msgid ""
 "\n"
 "The minimum length for passwords consisting of characters from two classes\n"
 "that don't meet requirements for passphrases: %s."
@@ -765,7 +765,7 @@ msgstr ""
     fn simple_message_with_context() {
         let orig = "\
 msgctxt \"listbox\"
-msgid  \"%d matching item\"
+msgid \"%d matching item\"
 msgstr \"%d відповідний елемент\"
 ";
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
@@ -823,7 +823,7 @@ msgstr[2] \"%d відповідних елементів\"
     #[test]
     fn simple_multiline_message() {
         let orig = "\
-msgid  \"foo\"
+msgid \"foo\"
 msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"
@@ -841,7 +841,7 @@ msgstr \"\"
 
     #[test]
     fn simple_singleline_message_with_endline() {
-        let orig = r#"msgid  "Only one of -s, -g, -r, or -l allowed\n"
+        let orig = r#"msgid "Only one of -s, -g, -r, or -l allowed\n"
 msgstr "Дозволено лише одне з -s, -g, -r або -l\n"
 "#;
         let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
@@ -870,7 +870,7 @@ msgstr \"\"
 # Foo
 # Bar
 # Baz
-msgid  \"foo\"
+msgid \"foo\"
 msgstr \"\"
 \"bar\\n\"
 \"baz\\n\"
@@ -967,7 +967,7 @@ msgstr \"\"
 
     #[test]
     fn test_ignore_garbage() {
-        let orig = "msgid  \"foo\"\nmsgstr \"bar\"\ngarbage line\n";
+        let orig = "msgid \"foo\"\nmsgstr \"bar\"\ngarbage line\n";
         let parser_strict = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
