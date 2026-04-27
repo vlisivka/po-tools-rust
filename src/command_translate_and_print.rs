@@ -572,6 +572,66 @@ mod tests {
     }
 
     #[test]
+    fn test_translate_check_symbols() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            // AI "forgot" the %d symbol
+            backend: AiBackend::mock("msgid \"a %d\"\nmsgstr \"translated_a\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+        };
+
+        let message = parser.parse_message_from_str("msgid \"a %d\"\nmsgstr \"\"\n")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Warning: Incorrect symbols"));
+        assert!(result.contains("#, fuzzy"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_check_whitespace() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            // AI "forgot" the trailing space
+            backend: AiBackend::mock("msgid \"a \"\nmsgstr \"translated_a\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+        };
+
+        let message = parser.parse_message_from_str("msgid \"a \"\nmsgstr \"\"\n")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Warning: Whitespace mismatch"));
+        assert!(result.contains("#, fuzzy"));
+        Ok(())
+    }
+
+    #[test]
     fn test_help() -> Result<()> {
         let mut out = Vec::new();
         let mut err = Vec::new();

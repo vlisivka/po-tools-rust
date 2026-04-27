@@ -15,6 +15,53 @@ fn strip_non_symbols(s: &str) -> String {
         .collect::<String>()
 }
 
+fn get_whitespace(s: &str) -> (String, String) {
+    let leading = s.chars().take_while(|c| c.is_whitespace()).collect();
+    let trailing = s
+        .chars()
+        .rev()
+        .take_while(|c| c.is_whitespace())
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    (leading, trailing)
+}
+
+fn check_strings(src: &str, dst: &str) -> Option<String> {
+    let mut warnings = String::new();
+
+    // Symbols check
+    let src_syms = strip_non_symbols(src);
+    let dst_syms = strip_non_symbols(dst);
+    if src_syms != dst_syms {
+        warnings.push_str(
+            &tr!(
+                "# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n"
+            )
+            .replace("{msgid_syms}", &src_syms)
+            .replace("{msgstr_syms}", &dst_syms),
+        );
+    }
+
+    // Whitespace check
+    let src_ws = get_whitespace(src);
+    let dst_ws = get_whitespace(dst);
+    if src_ws != dst_ws {
+        warnings.push_str(
+            &tr!("# Warning: Whitespace mismatch:\n# msgid:  \"{msgid_ws}\"\n# msgstr: \"{msgstr_ws}\"\n")
+                .replace("{msgid_ws}", &format!("{}{}", src_ws.0, src_ws.1))
+                .replace("{msgstr_ws}", &format!("{}{}", dst_ws.0, dst_ws.1)),
+        );
+    }
+
+    if warnings.is_empty() {
+        None
+    } else {
+        Some(warnings)
+    }
+}
+
 /// Checks a single message for symbol consistency.
 ///
 /// Returns a warning message if symbols in `msgid` don't match those in `msgstr`.
@@ -23,23 +70,21 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
         return None;
     }
 
-    let msgid_syms = strip_non_symbols(&message.msgid);
-
     if message.is_plural() {
+        let mut all_warnings = String::new();
         for msgstr in &message.msgstr {
-            let msgstr_syms = strip_non_symbols(msgstr);
-            if msgid_syms != msgstr_syms {
-                return Some(tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms));
+            if let Some(w) = check_strings(&message.msgid, msgstr) {
+                all_warnings.push_str(&w);
             }
         }
-    } else {
-        let msgstr_syms = strip_non_symbols(message.msgstr_first());
-        if msgid_syms != msgstr_syms {
-            return Some(tr!("# Warning: Incorrect symbols:\n# msgid:  {msgid_syms}\n# msgstr: {msgstr_syms}\n").replace("{msgid_syms}", &msgid_syms).replace("{msgstr_syms}", &msgstr_syms));
+        if all_warnings.is_empty() {
+            None
+        } else {
+            Some(all_warnings)
         }
+    } else {
+        check_strings(&message.msgid, message.msgstr_first())
     }
-
-    None
 }
 
 /// Implementation of the `check-symbols` command.
