@@ -13,6 +13,8 @@ pub struct Parser {
     pub number_of_plural_cases: Option<usize>,
     /// Whether to ignore extra text after the last `msgstr` or `msgstr[N]`.
     pub ignore_garbage_after_msgstr: bool,
+    /// Whether to strip comments during parsing.
+    pub strip_comments: bool,
 }
 
 /// Represents a single message entry in a PO file.
@@ -55,6 +57,11 @@ impl PoMessage {
     /// Returns true if this message is fully translated (all msgstr are non-empty).
     pub fn is_translated(&self) -> bool {
         !self.is_header() && self.msgstr.iter().all(|s| !s.is_empty())
+    }
+
+    /// Returns true if this message is fuzzy (it comment contains fuzzy flag).
+    pub fn is_fuzzy(&self) -> bool {
+        !self.is_header() && self.comments.iter().any(|c| c.starts_with("#, fuzzy"))
     }
 
     /// Returns the first translated string (`msgstr[0]`), or an empty string if not present.
@@ -250,6 +257,7 @@ impl Parser {
         Self {
             number_of_plural_cases,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         }
     }
 
@@ -568,7 +576,10 @@ impl Parser {
                 messages.push(message);
 
                 buf.truncate(0);
-            } else if !line.starts_with('#') {
+            } else {
+                if line.starts_with('#') && self.strip_comments {
+                    continue;
+                }
                 if !buf.is_empty() {
                     buf += "\n";
                 }
@@ -679,6 +690,31 @@ mod tests {
     }
 
     #[test]
+    fn test_comments_preservation() -> Result<()> {
+        let content = "# translator comment\n#. extracted comment\nmsgid \"a\"\nmsgstr \"b\"\n";
+        let parser = Parser::new(None);
+        let messages = parser.parse_messages_from_str(content)?;
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].comments.len(), 2);
+        assert_eq!(messages[0].comments[0], "# translator comment");
+        assert_eq!(messages[0].comments[1], "#. extracted comment");
+        Ok(())
+    }
+
+    #[test]
+    fn test_comments_stripping() -> Result<()> {
+        let content = "# translator comment\n#. extracted comment\nmsgid \"a\"\nmsgstr \"b\"\n";
+        let mut parser = Parser::new(None);
+        parser.strip_comments = true;
+        let messages = parser.parse_messages_from_str(content)?;
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].comments.len(), 0);
+        Ok(())
+    }
+
+    #[test]
     fn parse_stream_with_utf16_bom_should_fail() {
         let bom_and_content = b"\xFF\xFEmsgid \"\"\nmsgstr \"test\"\n";
         let mut reader = Cursor::new(&bom_and_content[..]);
@@ -703,6 +739,7 @@ msgstr \"\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -720,6 +757,7 @@ msgstr \"%d відповідний елемент\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -754,6 +792,7 @@ msgstr ""
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -772,6 +811,7 @@ msgstr \"%d відповідний елемент\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -792,6 +832,7 @@ msgstr[2] \"%d відповідних елементів\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -813,6 +854,7 @@ msgstr[2] \"%d відповідних елементів\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -832,6 +874,7 @@ msgstr \"\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -848,6 +891,7 @@ msgstr "Дозволено лише одне з -s, -g, -r або -l\n"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -879,6 +923,7 @@ msgstr \"\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let msg = parser
             .parse_message(&bytes[..])
@@ -898,6 +943,7 @@ msgstr \"\"
         let parser = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         let err = parser.parse_message(&bytes[..]).unwrap_err();
         let err_root_cause = err.root_cause();
@@ -971,12 +1017,14 @@ msgstr \"\"
         let parser_strict = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: false,
+            strip_comments: false,
         };
         assert!(parser_strict.parse_message_from_str(orig).is_err());
 
         let parser_lax = Parser {
             number_of_plural_cases: None,
             ignore_garbage_after_msgstr: true,
+            strip_comments: false,
         };
         let msg = parser_lax
             .parse_message_from_str(orig)
@@ -990,6 +1038,7 @@ msgstr \"\"
         let parser_lax = Parser {
             number_of_plural_cases: Some(2),
             ignore_garbage_after_msgstr: true,
+            strip_comments: false,
         };
         let msg = parser_lax
             .parse_message_from_str(orig)

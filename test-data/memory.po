@@ -12,9 +12,3 @@ msgstr "Виправлення помилок і оновлення можлив
 
 msgid "No matches here."
 msgstr "Немає співпадінь"
-
-msgid "The cat is on the mat."
-msgstr "Котик на килимку"
-
-msgid "Catalogue is buggy."
-msgstr "Каталог помилковий."

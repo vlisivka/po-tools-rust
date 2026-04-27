@@ -105,6 +105,7 @@ fn review_files_and_print(
     let parser = Parser {
         number_of_plural_cases,
         ignore_garbage_after_msgstr: false,
+        strip_comments: false,
     };
 
     for msgs in messages.iter_mut() {
@@ -207,9 +208,11 @@ IMPORTANT: Start with "<message> msgid ".
                         tr!("# ERROR: Wrong msgid field when trying to review"),
                         tr!("Review")
                     )?;
+                    let fixed_message = new_message.with_key(&message.to_key());
+                    let errors = validate_message(&fixed_message);
                     writeln!(
                         ctx.out,
-                        "{}:\n{errors}#, fuzzy\n{message}",
+                        "{}:\n{errors}#, fuzzy\n{fixed_message}",
                         tr!("# Reviewed message (warning:wrong id after review)")
                     )?;
                 }

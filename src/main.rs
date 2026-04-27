@@ -78,6 +78,7 @@ fn main() -> Result<()> {
 
     // Options
     let mut number_of_plural_cases: Option<usize> = None;
+    let mut strip_comments = false;
 
     // Parse arguments
     let args = std::env::args().collect::<Vec<String>>();
@@ -104,6 +105,10 @@ fn main() -> Result<()> {
               .replace("{value}", n)),
                 }
             }
+            ["--strip-comments", ref rest @ ..] => {
+                strip_comments = true;
+                tail = rest;
+            }
 
             ["-h", ..] | ["--help", ..] => {
                 help(&mut ctx)?;
@@ -121,7 +126,8 @@ fn main() -> Result<()> {
         }
     }
 
-    let parser = Parser::new(number_of_plural_cases);
+    let mut parser = Parser::new(number_of_plural_cases);
+    parser.strip_comments = strip_comments;
 
     // Parse arguments
     match tail[..] {
@@ -210,6 +216,7 @@ COMMANDS
 OPTIONS
 
   -c | --cases PLURAL_CASES    Number of plural cases to use in messages. If message has fewer than PLURAL_CASES, then empty ones will be added.
+  --strip-comments             Strip comments from PO files during parsing (ignore all lines starting with #).
 "#
         )
     )?;

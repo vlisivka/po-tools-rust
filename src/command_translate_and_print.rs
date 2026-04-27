@@ -156,6 +156,7 @@ pub fn command_translate_and_print(
             tm_messages: &tm_messages,
             dictionaries: &dictionaries,
             debug,
+            copy_comments: true,
         };
         translate_and_print(ctx, &config, &messages)?;
     }
@@ -190,6 +191,7 @@ struct TranslateConfig<'a> {
     tm_messages: &'a [PoMessage],
     dictionaries: &'a [Dictionary],
     debug: bool,
+    copy_comments: bool,
 }
 
 fn translate_and_print(
@@ -198,7 +200,8 @@ fn translate_and_print(
     messages: &[PoMessage],
 ) -> Result<()> {
     for message in messages {
-        if message.is_header() {
+        if message.is_header() || (message.is_translated() && !message.is_fuzzy()) {
+            // Just copy headers and translated messages
             writeln!(ctx.out, "{message}")?;
         } else {
             translate_single_message(ctx, config, message)?;
@@ -232,12 +235,10 @@ fn translate_single_message(
     let mut dict_context = String::new();
     let mut seen_keys = HashSet::new();
 
-    if !message.is_header() {
-        for dict in config.dictionaries {
-            for entry in dict.find_matches(&message.msgid) {
-                if seen_keys.insert(&entry.key) {
-                    dict_context.push_str(&format!("- {} - {}\n", entry.key, entry.translation));
-                }
+    for dict in config.dictionaries {
+        for entry in dict.find_matches(&message.msgid) {
+            if seen_keys.insert(&entry.key) {
+                dict_context.push_str(&format!("- {} - {}\n", entry.key, entry.translation));
             }
         }
     }
@@ -346,10 +347,15 @@ Produce only the {language} translation, without any additional explanations or 
             config.number_of_plural_cases
         },
         ignore_garbage_after_msgstr: true,
+        strip_comments: true,
     };
 
     match parser.parse_message_from_str(new_message_text_slice) {
-        Ok(new_message) => {
+        Ok(mut new_message) => {
+            if config.copy_comments {
+                new_message.comments = message.comments.clone();
+            }
+
             let actual_key = message.to_key();
             let result_key = new_message.to_key();
 
@@ -375,7 +381,7 @@ Produce only the {language} translation, without any additional explanations or 
                 let errors = validate_message(&fixed_message);
                 writeln!(
                     ctx.out,
-                    "{}:\n#{errors}#, fuzzy\n{fixed_message}",
+                    "{}:\n#{errors}\n#, fuzzy\n{fixed_message}",
                     tr!("# Translated message (WARNING: wrong id after translation)")
                 )?;
             }
@@ -458,6 +464,7 @@ mod tests {
             tm_messages: &[],
             dictionaries: &[],
             debug: false,
+            copy_comments: true,
         };
 
         let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
@@ -466,6 +473,101 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("msgid \"a\""));
         assert!(result.contains("msgstr \"translated_a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_copy_comments() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("msgid \"a\"\nmsgstr \"translated_a\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+        };
+
+        let message = parser.parse_message_from_str("# comment\nmsgid \"a\"\nmsgstr \"\"\n")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("# comment"));
+        assert!(result.contains("msgid \"a\""));
+        assert!(result.contains("msgstr \"translated_a\""));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_skip_translated() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            // Backend should not be called
+            backend: AiBackend::mock("SHOULD NOT BE CALLED"),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+        };
+
+        // already translated message
+        let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"existing_a\"\n")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"a\""));
+        assert!(result.contains("msgstr \"existing_a\""));
+        assert!(!result.contains("Translated message"));
+        assert!(!result.contains("SHOULD NOT BE CALLED"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_fuzzy_messages() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("msgid \"a\"\nmsgstr \"translated_fuzzy_a\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+        };
+
+        // fuzzy message
+        let message =
+            parser.parse_message_from_str("#, fuzzy\nmsgid \"a\"\nmsgstr \"old_fuzzy_a\"\n")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"a\""));
+        assert!(result.contains("msgstr \"translated_fuzzy_a\""));
+        assert!(result.contains("Translated message"));
         Ok(())
     }
 

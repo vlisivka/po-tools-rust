@@ -1,24 +1,21 @@
+# A header comment
 msgid ""
 msgstr "Header: header data."
 
+# An already translated message
+msgid "Translated message."
+msgstr "Перекладене повідомлення"
+
+# An fuzzy message
+#, fuzzy
+msgid "Translated message."
+msgstr "Пропонований переклад"
+
+# A partially translated plural message
 msgid "%s new patch,"
 msgid_plural "%s new patches,"
-msgstr[0] ""
+msgstr[0] "%s нова латка"
 
+#. A helpfull comment from the author
 msgid "Fixing bugs and adding features."
-msgstr ""
-
-msgid "No matches here."
-msgstr ""
-
-msgid "The cat is on the mat."
-msgstr ""
-
-msgid "Catalogue is buggy."
-msgstr ""
-
-#. "cap" here, used during speech output, is short for "capital".
-#. It is spoken just before an uppercase letter, e.g. "cap A".
-#: Programs/core.c:1095
-msgid "cap"
 msgstr ""
