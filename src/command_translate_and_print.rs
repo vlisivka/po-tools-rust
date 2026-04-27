@@ -26,6 +26,7 @@ pub fn command_translate_and_print(
     let mut debug = false;
     let mut ai_command_str: Option<&str> = None;
     let mut force_keyword: Option<String> = None;
+    let mut prompt: Option<String> = None;
 
     // Parse "translate" command options
     let mut cmdline = cmdline;
@@ -55,6 +56,11 @@ pub fn command_translate_and_print(
 
             ["-k", k, ..] | ["--force-by-keyword", k, ..] => {
                 force_keyword = Some(k.to_string());
+                cmdline = &cmdline[2..];
+            }
+
+            ["-p", p, ..] | ["--prompt", p, ..] => {
+                prompt = Some(p.to_string());
                 cmdline = &cmdline[2..];
             }
 
@@ -164,6 +170,7 @@ pub fn command_translate_and_print(
             debug,
             copy_comments: true,
             force_keyword: force_keyword.clone(),
+            prompt: prompt.clone(),
         };
         translate_and_print(ctx, &config, &messages)?;
     }
@@ -200,6 +207,7 @@ struct TranslateConfig<'a> {
     debug: bool,
     copy_comments: bool,
     force_keyword: Option<String>,
+    prompt: Option<String>,
 }
 
 fn translate_and_print(
@@ -277,6 +285,12 @@ msgstr[2] "%s нових латок,"
         ""
     };
 
+    let prompt_text = if let Some(p) = &config.prompt {
+        format!("IMPORTANT: {p}\n")
+    } else {
+        "".to_string()
+    };
+
     // Translation template
     let message_text = format!(
         r#"
@@ -290,7 +304,9 @@ IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbat
 IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
 IMPORTANT: Prefer translations proposed by dictionary.
 You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
-Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}:
+Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}.
+
+{prompt_text}
 </instruction>
 
 <message>
@@ -450,6 +466,8 @@ OPTIONS:
 
   -k | --force-by-keyword KEYWORD  Force translation of messages whose msgid contains KEYWORD.
 
+  -p | --prompt PROMPT  Additional instructions for AI models during translation.
+
   --ai-command COMMAND  Custom command to use for translation instead of aichat.
                         Example: --ai-command "ollama run gemma3"
 
@@ -483,6 +501,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: None,
+            prompt: None,
         };
 
         let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
@@ -513,6 +532,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: None,
+            prompt: None,
         };
 
         let message = parser.parse_message_from_str("# comment\nmsgid \"a\"\nmsgstr \"\"\n")?;
@@ -545,6 +565,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: None,
+            prompt: None,
         };
 
         // already translated message
@@ -578,6 +599,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: None,
+            prompt: None,
         };
 
         // fuzzy message
@@ -612,6 +634,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: None,
+            prompt: None,
         };
 
         let message = parser.parse_message_from_str("msgid \"a %d\"\nmsgstr \"\"\n")?;
@@ -643,6 +666,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: None,
+            prompt: None,
         };
 
         let message = parser.parse_message_from_str("msgid \"a \"\nmsgstr \"\"\n")?;
@@ -673,6 +697,7 @@ mod tests {
             debug: false,
             copy_comments: true,
             force_keyword: Some("keyword".to_string()),
+            prompt: None,
         };
 
         // already translated message with keyword in msgid
@@ -684,6 +709,37 @@ mod tests {
         assert!(result.contains("msgid \"keyword message\""));
         assert!(result.contains("msgstr \"forced_translation\""));
         assert!(result.contains("Translated message"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_custom_prompt() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("msgid \"a\"\nmsgstr \"b\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            // Use debug mode to see message sent to AI
+            debug: true,
+            copy_comments: true,
+            force_keyword: None,
+            prompt: Some("USE VERY FORMAL STYLE".to_string()),
+        };
+
+        let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
+        translate_single_message(&mut ctx, &config, &message)?;
+
+        let result = String::from_utf8(err)?;
+        assert!(result.contains("USE VERY FORMAL STYLE"));
         Ok(())
     }
 

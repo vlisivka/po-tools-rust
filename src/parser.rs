@@ -41,7 +41,12 @@ pub struct PoMessage {
 impl PoMessage {
     /// Returns true if this is a header message (empty msgid).
     pub fn is_header(&self) -> bool {
-        self.msgid.is_empty() && self.msgctxt.is_none()
+        self.msgid.is_empty() && self.msgctxt.is_none() && !self.msgstr.is_empty()
+    }
+
+    /// Returns true if this message is empty (no msgid and no msgstr).
+    pub fn is_nothing(&self) -> bool {
+        self.msgid.is_empty() && self.msgctxt.is_none() && self.msgstr.is_empty()
     }
 
     /// Returns true if this is a plural message.
@@ -56,12 +61,14 @@ impl PoMessage {
 
     /// Returns true if this message is fully translated (all msgstr are non-empty).
     pub fn is_translated(&self) -> bool {
-        !self.is_header() && self.msgstr.iter().all(|s| !s.is_empty())
+        !self.is_header() && !self.is_nothing() && self.msgstr.iter().all(|s| !s.is_empty())
     }
 
     /// Returns true if this message is fuzzy (it comment contains fuzzy flag).
     pub fn is_fuzzy(&self) -> bool {
-        !self.is_header() && self.comments.iter().any(|c| c.starts_with("#, fuzzy"))
+        !self.is_header()
+            && !self.is_nothing()
+            && self.comments.iter().any(|c| c.starts_with("#, fuzzy"))
     }
 
     /// Returns the first translated string (`msgstr[0]`), or an empty string if not present.
@@ -140,6 +147,11 @@ impl std::fmt::Display for PoMessage {
         // Comments
         for comment in &self.comments {
             writeln!(f, "{}", comment)?;
+        }
+
+        // Nothing (comment-only block)
+        if self.is_nothing() {
+            return Ok(());
         }
 
         // Header
@@ -405,13 +417,25 @@ impl Parser {
         let mut comments: Vec<String> = Vec::new();
 
         let mut tail = self.collect_comments(text, &mut comments)?;
+
+        // Handle comment-only messages (e.g. obsolete messages)
+        if skip_spaces_and_comments(tail).is_empty() {
+            return Ok(PoMessage {
+                msgctxt: None,
+                msgid: String::new(),
+                msgid_plural: None,
+                msgstr: vec![],
+                comments,
+            });
+        }
+
         loop {
             let (kw, t) = self
                 .parse_keyword(tail)
                 .context("Expected msgid \"...\" or msgctxt \"...\".")?;
             let (s, t) = self
                 .parse_string(t)
-                .context("Expected msgid \"...\" or msgctxt \"...\".")?;
+                .context("Expected \"...\" after keyword.")?;
             tail = self.collect_comments(t, &mut comments)?;
 
             match kw {
@@ -932,22 +956,13 @@ msgstr \"\"
     }
 
     #[test]
-    fn no_message_error() {
-        let orig = "\
-# Foo
-";
-        let expected_err =
-            "Unexpected end of text. Expected: msgid, msgstr, msgid_plural, msgstr[N].";
-
-        let bytes: Vec<u8> = orig.bytes().chain(b"\n".iter().copied()).collect();
-        let parser = Parser {
-            number_of_plural_cases: None,
-            ignore_garbage_after_msgstr: false,
-            strip_comments: false,
-        };
-        let err = parser.parse_message(&bytes[..]).unwrap_err();
-        let err_root_cause = err.root_cause();
-        assert_eq!(expected_err, format!("{err_root_cause}"));
+    fn test_comment_only_block() -> Result<()> {
+        let orig = "# Foo\n";
+        let parser = Parser::new(None);
+        let msg = parser.parse_message_from_str(orig)?;
+        assert!(msg.is_nothing());
+        assert_eq!(msg.comments, vec!["# Foo".to_string()]);
+        Ok(())
     }
 
     #[test]
@@ -1044,5 +1059,32 @@ msgstr \"\"
             .parse_message_from_str(orig)
             .expect("lax parsing should work for plural messages");
         assert_eq!(msg.msgstr.len(), 2);
+    }
+    #[test]
+    fn test_obsolete_messages() -> Result<()> {
+        let parser = Parser::new(None);
+        let po = r#"
+msgid "active"
+msgstr "активний"
+
+#~ msgid "obsolete"
+#~ msgstr "застарілий"
+"#;
+        let messages = parser.parse_messages_from_str(po)?;
+        assert_eq!(messages.len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_obsolete_messages_roundtrip() -> Result<()> {
+        let parser = Parser::new(None);
+        let po = r#"#~ msgid "obsolete"
+#~ msgstr "застарілий"
+"#;
+        let messages = parser.parse_messages_from_str(po)?;
+        assert_eq!(messages.len(), 1);
+        let rendered = format!("{}", messages[0]);
+        assert_eq!(rendered.trim(), po.trim());
+        Ok(())
     }
 }
