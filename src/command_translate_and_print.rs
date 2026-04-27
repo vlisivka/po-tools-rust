@@ -25,6 +25,7 @@ pub fn command_translate_and_print(
     let mut dictionary_files: Vec<&str> = Vec::new();
     let mut debug = false;
     let mut ai_command_str: Option<&str> = None;
+    let mut force_keyword: Option<String> = None;
 
     // Parse "translate" command options
     let mut cmdline = cmdline;
@@ -49,6 +50,11 @@ pub fn command_translate_and_print(
 
             ["-d", dict_file, ..] | ["--dictionary", dict_file, ..] => {
                 dictionary_files.push(dict_file);
+                cmdline = &cmdline[2..];
+            }
+
+            ["-k", k, ..] | ["--force-by-keyword", k, ..] => {
+                force_keyword = Some(k.to_string());
                 cmdline = &cmdline[2..];
             }
 
@@ -157,6 +163,7 @@ pub fn command_translate_and_print(
             dictionaries: &dictionaries,
             debug,
             copy_comments: true,
+            force_keyword: force_keyword.clone(),
         };
         translate_and_print(ctx, &config, &messages)?;
     }
@@ -192,6 +199,7 @@ struct TranslateConfig<'a> {
     dictionaries: &'a [Dictionary],
     debug: bool,
     copy_comments: bool,
+    force_keyword: Option<String>,
 }
 
 fn translate_and_print(
@@ -200,7 +208,14 @@ fn translate_and_print(
     messages: &[PoMessage],
 ) -> Result<()> {
     for message in messages {
-        if message.is_header() || (message.is_translated() && !message.is_fuzzy()) {
+        let should_force = config
+            .force_keyword
+            .as_ref()
+            .map(|k| message.msgid.contains(k))
+            .unwrap_or(false);
+
+        if message.is_header() || (message.is_translated() && !message.is_fuzzy() && !should_force)
+        {
             // Just copy headers and translated messages
             writeln!(ctx.out, "{message}")?;
         } else {
@@ -433,6 +448,8 @@ OPTIONS:
 
   -d | --dictionary FILE  TSV dictionary file to use for context. Can be used multiple times.
 
+  -k | --force-by-keyword KEYWORD  Force translation of messages whose msgid contains KEYWORD.
+
   --ai-command COMMAND  Custom command to use for translation instead of aichat.
                         Example: --ai-command "ollama run gemma3"
 
@@ -465,6 +482,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
+            force_keyword: None,
         };
 
         let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
@@ -494,6 +512,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
+            force_keyword: None,
         };
 
         let message = parser.parse_message_from_str("# comment\nmsgid \"a\"\nmsgstr \"\"\n")?;
@@ -525,6 +544,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
+            force_keyword: None,
         };
 
         // already translated message
@@ -557,6 +577,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
+            force_keyword: None,
         };
 
         // fuzzy message
@@ -590,6 +611,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
+            force_keyword: None,
         };
 
         let message = parser.parse_message_from_str("msgid \"a %d\"\nmsgstr \"\"\n")?;
@@ -620,6 +642,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
+            force_keyword: None,
         };
 
         let message = parser.parse_message_from_str("msgid \"a \"\nmsgstr \"\"\n")?;
@@ -628,6 +651,39 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("Warning: Whitespace mismatch"));
         assert!(result.contains("#, fuzzy"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_force_keyword() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("msgid \"keyword message\"\nmsgstr \"forced_translation\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            force_keyword: Some("keyword".to_string()),
+        };
+
+        // already translated message with keyword in msgid
+        let message = parser
+            .parse_message_from_str("msgid \"keyword message\"\nmsgstr \"old_translation\"\n")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"keyword message\""));
+        assert!(result.contains("msgstr \"forced_translation\""));
+        assert!(result.contains("Translated message"));
         Ok(())
     }
 
