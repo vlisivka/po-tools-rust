@@ -7,7 +7,7 @@ A collection of tools for working with GNU Gettext PO files, written in Rust. Fe
 ### Prerequisites
 
 *   [Rust](https://www.rust-lang.org/tools/install) (cargo)
-*   [aichat](https://github.com/sigoden/aichat) (for AI-related commands: `translate`, `review`, `filter`)
+*   [aichat](https://github.com/sigoden/aichat) (for AI-related commands: `translate`, `review`)
 
 ### Building from source
 
@@ -39,7 +39,6 @@ These commands require `aichat` to be installed and configured.
     *   `--tm FILE` — Translation Memory file for fuzzy matching.
     *   `-d | --dictionary FILE` — TSV dictionary for terminology.
 *   `review [OPTIONS] FILE1 FILE2...` — Compare translations and let AI pick/fix the best one.
-*   `filter [OPTIONS] FILE` — Use AI to filter messages (e.g., finding specific translation issues).
 
 ### Manipulation & Comparison
 

@@ -65,9 +65,6 @@ use crate::command_erase_and_print::command_erase_and_print;
 mod command_check_symbols;
 use crate::command_check_symbols::command_check_symbols;
 
-mod command_filter_with_ai_and_print;
-use crate::command_filter_with_ai_and_print::command_filter_with_ai_and_print;
-
 mod util;
 
 mod dictionary;
@@ -162,9 +159,6 @@ fn main() -> Result<()> {
             command_print_with_unequal_linebreaks(&parser, cmdline, &mut ctx)?
         }
         ["check-symbols", ref cmdline @ ..] => command_check_symbols(&parser, cmdline, &mut ctx)?,
-        ["filter", ref cmdline @ ..] => {
-            command_filter_with_ai_and_print(&parser, cmdline, &mut ctx)?
-        }
 
         ["help", ..] | [] => help(&mut ctx)?,
         [arg, ..] => bail!(
@@ -187,7 +181,6 @@ fn help(ctx: &mut util::IoContext) -> Result<()> {
 COMMANDS
 
   * translate [OPTIONS] FILE - WIP! Translate PO file using AI.
-  * filter [OPTIONS] FILE - WIP! Filter messages using AI.
   * review [OPTIONS] FILE [FILE...] - WIP! Review multiple translations of _same_ file using AI.
   * compare FILE1 FILE[...] - List different variants of translation for the same file.
 
