@@ -7,6 +7,7 @@ use crate::dictionary::Dictionary;
 use crate::parser::{Parser, PoMessage};
 use crate::util::{AiBackend, IoContext, validate_message};
 use anyhow::{Context, Result, bail};
+use regex::Regex;
 use std::collections::HashSet;
 use std::io::Write;
 use strsim::normalized_levenshtein;
@@ -161,6 +162,15 @@ pub fn command_translate_and_print(
                 .replace("{count}", &messages.len().to_string())
         )?;
 
+        let force_matcher = if let Some(k) = &force_keyword {
+            let pattern = format!(r"(?i)\b{}s?\b", regex::escape(k));
+            Some(Regex::new(&pattern).with_context(|| {
+                tr!("Cannot compile regex for keyword \"{}\".").replace("{}", k)
+            })?)
+        } else {
+            None
+        };
+
         let config = TranslateConfig {
             backend: backend.clone(),
             language,
@@ -169,7 +179,7 @@ pub fn command_translate_and_print(
             dictionaries: &dictionaries,
             debug,
             copy_comments: true,
-            force_keyword: force_keyword.clone(),
+            keyword_matcher: force_matcher,
             prompt: prompt.clone(),
         };
         translate_and_print(ctx, &config, &messages)?;
@@ -206,7 +216,7 @@ struct TranslateConfig<'a> {
     dictionaries: &'a [Dictionary],
     debug: bool,
     copy_comments: bool,
-    force_keyword: Option<String>,
+    keyword_matcher: Option<Regex>,
     prompt: Option<String>,
 }
 
@@ -217,9 +227,9 @@ fn translate_and_print(
 ) -> Result<()> {
     for message in messages {
         let should_force = config
-            .force_keyword
+            .keyword_matcher
             .as_ref()
-            .map(|k| message.msgid.contains(k))
+            .map(|re| re.is_match(&message.msgid))
             .unwrap_or(false);
 
         if message.is_header() || (message.is_translated() && !message.is_fuzzy() && !should_force)
@@ -351,18 +361,21 @@ Produce only the {language} translation, without any additional explanations or 
 
     let new_message_text_cleaned = if let Some(start) = new_message_text.rfind("</think>") {
         // Skip thinking output from reasoning models
-        &new_message_text[start..]
+        let tag_len = "</think>".len();
+        &new_message_text[(start + tag_len)..]
     } else {
         &new_message_text[..]
     };
 
-    let new_message_text_slice = if let (Some(start), Some(end)) = (
-        new_message_text_cleaned.rfind("<message>"),
-        new_message_text_cleaned.rfind("</message>"),
-    ) {
+    let new_message_text_slice = if let Some(end) = new_message_text_cleaned.rfind("</message>") {
         // Extract text between <message> and </message>, if they are present
-        let tag_len = "<message>".len();
-        &new_message_text_cleaned[(start + tag_len)..end]
+        let tag_open = "<message>";
+        if let Some(start) = new_message_text_cleaned[..end].rfind(tag_open) {
+            &new_message_text_cleaned[(start + tag_open.len())..end]
+        } else {
+            // Found </message> but no <message> before it. Fallback to whole string or msgid search.
+            new_message_text_cleaned
+        }
     } else if let Some(start) = new_message_text_cleaned.rfind("msgid ") {
         // Unwrapped message found
         &new_message_text_cleaned[start..]
@@ -500,7 +513,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: None,
         };
 
@@ -531,7 +544,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: None,
         };
 
@@ -564,7 +577,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: None,
         };
 
@@ -598,7 +611,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: None,
         };
 
@@ -633,7 +646,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: None,
         };
 
@@ -665,7 +678,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: None,
         };
 
@@ -696,7 +709,7 @@ mod tests {
             dictionaries: &[],
             debug: false,
             copy_comments: true,
-            force_keyword: Some("keyword".to_string()),
+            keyword_matcher: Some(Regex::new(r"(?i)\bkeywords?\b").unwrap()),
             prompt: None,
         };
 
@@ -709,6 +722,43 @@ mod tests {
         assert!(result.contains("msgid \"keyword message\""));
         assert!(result.contains("msgstr \"forced_translation\""));
         assert!(result.contains("Translated message"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_skip_translated_with_keyword_no_match() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        // Backend should not be called because the message is translated
+        // and the keyword "tag" is NOT in the msgid.
+        // Word "percenTAGe" contains "tag", but must not trigger the translation.
+        let config = TranslateConfig {
+            backend: AiBackend::mock("msgid \"percentage\"\nmsgstr \"у відсотках\"\n"),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: false,
+            keyword_matcher: Some(Regex::new(r"(?i)\btags?\b").unwrap()),
+            prompt: None,
+        };
+
+        let message =
+            parser.parse_message_from_str("msgid \"percentage\"\nmsgstr \"відсоток\"\n")?;
+
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(!result.contains("у відсотках"));
+        assert!(result.contains("msgid \"percentage\""));
+        assert!(result.contains("msgstr \"відсоток\""));
         Ok(())
     }
 
@@ -731,7 +781,7 @@ mod tests {
             // Use debug mode to see message sent to AI
             debug: true,
             copy_comments: true,
-            force_keyword: None,
+            keyword_matcher: None,
             prompt: Some("USE VERY FORMAL STYLE".to_string()),
         };
 
@@ -772,6 +822,132 @@ mod tests {
 
         let result = command_translate_and_print(&parser, &[], &mut ctx);
         assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_force_keyword_comprehensive() -> Result<()> {
+        let parser = Parser::new(None);
+
+        // Test matches for "tag"
+        // Expected: tag, tags, Tag match; percentage, tagging do NOT match.
+        let test_cases = vec![
+            ("tag", true),
+            ("tags", true),
+            ("Tag", true),
+            ("Two tags in a row", true),
+            ("percentage", false),
+            ("tagging", false),
+        ];
+
+        let tag_regex = Regex::new(r"(?i)\btags?\b").unwrap();
+
+        for (msgid, should_match) in test_cases {
+            let mut out = Vec::new();
+            let mut err = Vec::new();
+            let mut ctx = IoContext {
+                out: &mut out,
+                err: &mut err,
+            };
+            let config = TranslateConfig {
+                backend: AiBackend::mock("msgid \"...\"\nmsgstr \"forced_translation\""),
+                language: "Ukrainian",
+                number_of_plural_cases: None,
+                tm_messages: &[],
+                dictionaries: &[],
+                debug: false,
+                copy_comments: false,
+                keyword_matcher: Some(tag_regex.clone()),
+                prompt: None,
+            };
+
+            let message =
+                parser.parse_message_from_str(&format!("msgid \"{msgid}\"\nmsgstr \"old\"\n"))?;
+            translate_and_print(&mut ctx, &config, &[message])?;
+            let result = String::from_utf8(out)?;
+            if should_match {
+                assert!(
+                    result.contains("forced_translation"),
+                    "Should have matched '{}'",
+                    msgid
+                );
+            } else {
+                assert!(
+                    result.contains("old"),
+                    "Should NOT have matched '{}'",
+                    msgid
+                );
+                assert!(
+                    !result.contains("forced_translation"),
+                    "Should NOT have matched '{}'",
+                    msgid
+                );
+            }
+        }
+
+        // Test multi-word keyword
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let config_big_endian = TranslateConfig {
+            backend: AiBackend::mock("msgid \"...\"\nmsgstr \"forced_translation\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: false,
+            keyword_matcher: Some(Regex::new(r"(?i)\bbig endians?\b").unwrap()),
+            prompt: None,
+        };
+
+        let message =
+            parser.parse_message_from_str("msgid \"This is big endian\"\nmsgstr \"old\"\n")?;
+        translate_and_print(&mut ctx, &config_big_endian, &[message])?;
+        let result = String::from_utf8(out)?;
+        assert!(
+            result.contains("forced_translation"),
+            "Should match 'big endian'"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_translate_broken_tags() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let broken_output = "<message>msgid \"a\"\nmsgstr \"translated_a\"</message>\n\
+                             Some extra text mentioning <message> tag but not closing it.";
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock(broken_output),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+        };
+
+        let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
+        // This should NOT panic
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgid \"a\""));
+        assert!(result.contains("msgstr \"translated_a\""));
         Ok(())
     }
 }

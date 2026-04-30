@@ -4,7 +4,8 @@ set -ue
 cargo test
 
 cargo run -- \
-  --cases 3 translate \
+  --cases 3 \
+  translate \
   --debug \
   --tm test-data/memory.po \
   --dictionary test-data/test_dict.tsv \
