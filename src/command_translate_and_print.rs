@@ -70,7 +70,7 @@ pub fn command_translate_and_print(
                 cmdline = &cmdline[1..];
             }
 
-            ["--ai-command", cmd, ..] => {
+            ["-c", cmd, ..] | ["--ai-command", cmd, ..] => {
                 ai_command_str = Some(cmd);
                 cmdline = &cmdline[2..];
             }
@@ -473,6 +473,10 @@ OPTIONS:
 
   -R | --rag RAG        aichat RAG to use.
 
+  -c | --ai-command COMMAND  Custom command to use for translation instead of aichat.
+                        Example: --ai-command "ollama run gemma4:latest"
+                        Options --model, --role, --rag will not work with this option.
+
   --tm FILE             Local Translation Memory file (PO format) to use for fuzzy matching.
 
   -d | --dictionary FILE  TSV dictionary file to use for context. Can be used multiple times.
@@ -480,9 +484,6 @@ OPTIONS:
   -k | --force-by-keyword KEYWORD  Force translation of messages whose msgid contains KEYWORD.
 
   -p | --prompt PROMPT  Additional instructions for AI models during translation.
-
-  --ai-command COMMAND  Custom command to use for translation instead of aichat.
-                        Example: --ai-command "ollama run gemma3"
 
   --debug               Print inputs and outputs of AI models to stderr.
 "#
