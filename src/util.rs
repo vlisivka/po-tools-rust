@@ -159,12 +159,12 @@ pub fn validate_message(message: &PoMessage) -> String {
 
     if !message.is_plural() {
         if message.msgstr_first().is_empty() {
-            return tr!("Message is not translated.").to_string();
+            return tr!("# Error: Message is not translated.\n").to_string();
         }
     } else {
         for msgstr in &message.msgstr {
             if msgstr.is_empty() {
-                return tr!("Message is not translated fully.").to_string();
+                return tr!("# Error: Message is not translated fully.\n").to_string();
             }
         }
     }

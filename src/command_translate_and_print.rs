@@ -303,11 +303,8 @@ msgstr[2] "%s нових латок,"
 
     // Translation template
     let message_text = format!(
-        r#"
-{dict_context}
-
+        r#"{dict_context}
 {fuzzy_match_text}
-
 <instruction>
 IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
 IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translation.
@@ -315,14 +312,12 @@ IMPORTANT: Don't translate <context> and <dictionary>. They are just for referen
 IMPORTANT: Prefer translations proposed by dictionary.
 You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
 Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}.
-
 {prompt_text}
 </instruction>
 
 <message>
 {message}
 </message>
-
 {example}
 "#,
         language = config.language
@@ -332,7 +327,7 @@ Produce only the {language} translation, without any additional explanations or 
         writeln!(
             ctx.err,
             "----{}-----------------------------------------------------------",
-            tr!("Message to aichat")
+            tr!("Message to translator")
         )?;
         writeln!(ctx.err, "{message_text}")?;
         writeln!(
@@ -349,7 +344,7 @@ Produce only the {language} translation, without any additional explanations or 
         writeln!(
             ctx.err,
             "----{}-----------------------------------------------------------",
-            tr!("Reply from aichat")
+            tr!("Reply from translator")
         )?;
         writeln!(ctx.err, "{new_message_text}")?;
         writeln!(
@@ -407,7 +402,7 @@ Produce only the {language} translation, without any additional explanations or 
                 let errors = validate_message(&new_message);
                 writeln!(
                     ctx.out,
-                    "{}:\n#{errors}\n#, fuzzy\n{new_message}",
+                    "{}:\n{errors}#, fuzzy\n{new_message}",
                     tr!("# Translated message")
                 )?;
             } else {
@@ -425,7 +420,7 @@ Produce only the {language} translation, without any additional explanations or 
                 let errors = validate_message(&fixed_message);
                 writeln!(
                     ctx.out,
-                    "{}:\n#{errors}\n#, fuzzy\n{fixed_message}",
+                    "{}:\n{errors}#, fuzzy\n{fixed_message}",
                     tr!("# Translated message (WARNING: wrong id after translation)")
                 )?;
             }
