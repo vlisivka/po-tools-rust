@@ -76,19 +76,21 @@ impl PoMessage {
         self.msgstr.first().map(|s| s.as_str()).unwrap_or("")
     }
 
-    /// Creates a "key" version of the message by clearing its translations.
-    /// This is useful for looking up messages in a map where only the identity matters.
+    /// Creates a "key" version of the message by clearing its translations and comments.
+    /// This is useful for looking up messages in a map where only the identity matters
+    /// (msgctxt + msgid + msgid_plural).
     pub fn to_key(&self) -> Self {
         Self {
             msgctxt: self.msgctxt.clone(),
             msgid: self.msgid.clone(),
             msgid_plural: self.msgid_plural.clone(),
             msgstr: if self.is_header() {
+                // Headers are identified by their content, so keep msgstr.
                 self.msgstr.clone()
             } else {
                 Vec::new()
             },
-            comments: self.comments.clone(),
+            comments: vec![],
         }
     }
 
@@ -1024,6 +1026,74 @@ msgstr \"\"
         let msg2 = msg.with_key(&key);
         assert_eq!(msg2.msgid, "foo");
         assert_eq!(msg2.msgctxt, Some("ctx".to_string()));
+    }
+
+    #[test]
+    fn test_po_message_to_key_strips_comments_and_translations() {
+        let msg = PoMessage {
+            msgctxt: None,
+            msgid: "foo".to_string(),
+            msgid_plural: Some("foos".to_string()),
+            msgstr: vec!["translation 1".to_string(), "translation 2".to_string()],
+            comments: vec!["# translator note".to_string(), "#, fuzzy".to_string()],
+        };
+        let key = msg.to_key();
+
+        // Key should preserve identity fields
+        assert_eq!(key.msgid, "foo");
+        assert_eq!(key.msgctxt, None);
+        assert_eq!(key.msgid_plural, Some("foos".to_string()));
+
+        // Key must NOT carry translations or comments — they are not part of identity.
+        assert!(
+            key.msgstr.is_empty(),
+            "msgstr should be empty for non-header keys"
+        );
+        assert!(
+            key.comments.is_empty(),
+            "comments should be stripped from key"
+        );
+    }
+
+    #[test]
+    fn test_po_message_to_key_header_preserves_msgstr() {
+        let msg = PoMessage {
+            msgid: String::new(), // header has empty msgid
+            msgstr: vec![
+                "Content-Type: text/plain; charset=UTF-8\nPlural-Forms: nplurals=2\n".to_string(),
+            ],
+            comments: vec![],
+            ..Default::default()
+        };
+        let key = msg.to_key();
+
+        // Headers are identified by their content, so msgstr is preserved.
+        assert!(msg.is_header());
+        assert_eq!(key.msgstr.len(), 1);
+    }
+
+    #[test]
+    fn test_po_message_same_identity_different_comments_are_equal_keys() {
+        let m1 = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["old".to_string()],
+            comments: vec!["# comment A".to_string()],
+            ..Default::default()
+        };
+        let m2 = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["new".to_string()],
+            comments: vec!["# comment B".to_string()],
+            ..Default::default()
+        };
+
+        // Different full messages (different translations and comments)
+        assert_ne!(m1, m2);
+
+        // But same identity key
+        let k1 = m1.to_key();
+        let k2 = m2.to_key();
+        assert_eq!(k1, k2, "Keys should be equal when msgid is the same");
     }
 
     #[test]

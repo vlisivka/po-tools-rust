@@ -98,6 +98,7 @@ pub fn command_diff_by_str_and_print(
         [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
             let orig_messages = parser.parse_messages_from_file(orig_file)?;
 
+            // Keyed by identity (msgctxt+msgid+msgid_plural). The value is a reference to the full message.
             let mut map: HashMap<PoMessage, &PoMessage> =
                 HashMap::with_capacity(orig_messages.len());
 
@@ -151,6 +152,38 @@ mod tests {
 
         let f2 = NamedTempFile::new()?;
         fs::write(f2.path(), "msgid \"a\"\nmsgstr \"new\"\n")?;
+
+        command_diff_by_str_and_print(
+            &parser,
+            &[f1.path().to_str().unwrap(), f2.path().to_str().unwrap()],
+            &mut ctx,
+        )?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Original message"));
+        assert!(result.contains("old"));
+        assert!(result.contains("New translation"));
+        assert!(result.contains("new"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_diffstr_same_msgid_different_comments() -> Result<()> {
+        // Messages with the same msgid but different comments should still be matched
+        // and diffed as the same entry.
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let f1 = NamedTempFile::new()?;
+        fs::write(f1.path(), "# Comment A\nmsgid \"hello\"\nmsgstr \"old\"\n")?;
+
+        let f2 = NamedTempFile::new()?;
+        fs::write(f2.path(), "# Comment B\nmsgid \"hello\"\nmsgstr \"new\"\n")?;
 
         command_diff_by_str_and_print(
             &parser,
