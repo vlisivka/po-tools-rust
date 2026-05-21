@@ -519,6 +519,11 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("msgid \"a\""));
         assert!(result.contains("msgstr \"translated_a\""));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -551,6 +556,11 @@ mod tests {
         assert!(result.contains("# comment"));
         assert!(result.contains("msgid \"a\""));
         assert!(result.contains("msgstr \"translated_a\""));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -586,6 +596,11 @@ mod tests {
         assert!(result.contains("msgstr \"existing_a\""));
         assert!(!result.contains("Translated message"));
         assert!(!result.contains("SHOULD NOT BE CALLED"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -620,6 +635,11 @@ mod tests {
         assert!(result.contains("msgid \"a\""));
         assert!(result.contains("msgstr \"translated_fuzzy_a\""));
         assert!(result.contains("Translated message"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -652,6 +672,11 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("Warning: Incorrect symbols"));
         assert!(result.contains("#, fuzzy"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -684,6 +709,11 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("Warning: Whitespace mismatch"));
         assert!(result.contains("#, fuzzy"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -718,6 +748,11 @@ mod tests {
         assert!(result.contains("msgid \"keyword message\""));
         assert!(result.contains("msgstr \"forced_translation\""));
         assert!(result.contains("Translated message"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -803,6 +838,11 @@ mod tests {
 
         let result = String::from_utf8(out)?;
         assert!(result.contains("Usage:"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -818,6 +858,11 @@ mod tests {
 
         let result = command_translate_and_print(&parser, &[], &mut ctx);
         assert!(result.is_err());
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -944,6 +989,11 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("msgid \"a\""));
         assert!(result.contains("msgstr \"translated_a\""));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 }

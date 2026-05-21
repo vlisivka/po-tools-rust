@@ -79,6 +79,11 @@ mod tests {
         let result = String::from_utf8(out)?;
         assert!(result.contains("msgid \"a\\n\""));
         assert!(!result.contains("msgid \"c\""));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -96,6 +101,11 @@ mod tests {
 
         let result = String::from_utf8(out)?;
         assert!(result.contains("Usage:"));
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 
@@ -111,6 +121,11 @@ mod tests {
 
         let result = command_print_with_unequal_linebreaks(&parser, &[], &mut ctx);
         assert!(result.is_err());
+        assert_eq!(
+            String::from_utf8_lossy(&err),
+            "",
+            "unexpected stderr output"
+        );
         Ok(())
     }
 }
