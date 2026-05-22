@@ -996,4 +996,233 @@ mod tests {
         );
         Ok(())
     }
+
+    // ---------------------------------------------------------------------------
+    // Plural message translation tests
+    // ---------------------------------------------------------------------------
+
+    /// A plural message with empty msgstr entries triggers AI translation.
+    #[test]
+    fn test_translate_plural_message() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+
+        // AI returns a fully-translated plural message with 3 forms.
+        let ai_response = "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"\nmsgstr[2] \"%d нових латок,\"";
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock(ai_response),
+            language: "Ukrainian",
+            number_of_plural_cases: Some(3),
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+        };
+
+        let parser = Parser::new(Some(3));
+        let message = parser.parse_message_from_str("msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"\"\nmsgstr[1] \"\"")?;
+
+        assert!(message.is_plural());
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // The output must contain the translated plural forms.
+        assert!(result.contains("msgstr[0] \"%d нова латка,\""));
+        assert!(result.contains("msgstr[1] \"%d нові латки,\""));
+        assert!(result.contains("msgstr[2] \"%d нових латок,\""));
+        // Must be marked as fuzzy (AI-generated).
+        assert!(result.contains("#, fuzzy"));
+
+        let stderr = String::from_utf8(err)?;
+        assert_eq!(stderr, "", "unexpected stderr output: {stderr}");
+        Ok(())
+    }
+
+    /// A plural message that is already fully translated should be passed through without calling AI.
+    #[test]
+    fn test_translate_skip_translated_plural() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+
+        let config = TranslateConfig {
+            // Backend should NOT be called because the message is already translated.
+            backend: AiBackend::mock("SHOULD_NOT_APPEAR"),
+            language: "Ukrainian",
+            number_of_plural_cases: Some(3),
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+        };
+
+        let parser = Parser::new(Some(3));
+        // Fully translated plural message (all 3 forms).
+        let message = parser.parse_message_from_str("msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"\nmsgstr[2] \"%d нових латок,\"")?;
+
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgstr[0] \"%d нова латка,\""));
+        // The mock response must NOT appear in the output.
+        assert!(!result.contains("SHOULD_NOT_APPEAR"));
+        // No translation comment - it was copied verbatim.
+        assert!(!result.contains("msgid \"translated_a\""));
+
+        let stderr = String::from_utf8(err)?;
+        assert_eq!(stderr, "", "unexpected stderr output: {stderr}");
+        Ok(())
+    }
+
+    /// A plural message where only msgstr[0] is translated but others are empty should still trigger AI.
+    #[test]
+    fn test_translate_partially_translated_plural() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+
+        // AI returns a fully-translated plural message.
+        let ai_response = "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"\nmsgstr[2] \"%d нових латок,\"";
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock(ai_response),
+            language: "Ukrainian",
+            number_of_plural_cases: Some(3),
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+        };
+
+        let parser = Parser::new(Some(3));
+        // Partially translated: msgstr[0] is filled but others are empty.
+        let message = parser.parse_message_from_str("msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%s нова латка\"")?;
+
+        // is_translated() returns false because not all msgstr entries are non-empty.
+        assert!(!message.is_translated());
+
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // The AI\'s new translations should appear in the output.
+        assert!(result.contains("msgstr[0] \"%d нова латка,\""));
+        assert!(result.contains("#, fuzzy"));
+
+        let stderr = String::from_utf8(err)?;
+        assert_eq!(stderr, "", "unexpected stderr output: {stderr}");
+        Ok(())
+    }
+
+    /// The AI prompt for a plural message must include the example template.
+    #[test]
+    fn test_translate_plural_prompt_contains_example() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+
+        // We don't care about the response content; we only check debug stderr.
+        let ai_response = "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"";
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock(ai_response),
+            language: "Ukrainian",
+            number_of_plural_cases: Some(3),
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: true, // <-- enables printing the prompt to stderr
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+        };
+
+        let parser = Parser::new(Some(3));
+        let message = parser.parse_message_from_str(
+            "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"\"",
+        )?;
+
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let stderr = String::from_utf8(err)?;
+        // The plural example template is only included when `is_plural` is true.
+        assert!(
+            stderr.contains("<example>"),
+            "plural prompt must contain <example>"
+        );
+        assert!(
+            stderr.contains("msgid_plural"),
+            "<example> must contain msgid_plural"
+        );
+        Ok(())
+    }
+
+    /// When the AI returns a plural message with fewer msgstr entries than expected,
+    /// the parser pads them to `number_of_plural_cases`. The validation should flag
+    /// this as not-fully-translated.
+    #[test]
+    fn test_translate_plural_incomplete_ai_response() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+
+        // AI only returned 2 forms instead of the expected 3.
+        let ai_response = "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"";
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock(ai_response),
+            language: "Ukrainian",
+            number_of_plural_cases: Some(3), // We expect 3 plural forms.
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+        };
+
+        let parser = Parser::new(Some(3));
+        let message = parser.parse_message_from_str(
+            "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"\"",
+        )?;
+
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // The parser pads to 3 forms - so msgstr[2] should be empty.
+        assert!(
+            result.contains("msgstr[2]"),
+            "expected padded msgstr[2], got:\n{result}"
+        );
+        // validate_message() detects incomplete plural translation and adds an error comment.
+        assert!(
+            result.contains("Error: Message is not translated fully"),
+            "incomplete plural msgstr should trigger validation warning, got:\n{result}"
+        );
+
+        let stderr = String::from_utf8(err)?;
+        assert_eq!(stderr, "", "unexpected stderr output: {stderr}");
+        Ok(())
+    }
 }
