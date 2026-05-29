@@ -28,6 +28,7 @@ pub fn command_translate_and_print(
     let mut ai_command_str: Option<&str> = None;
     let mut force_keyword: Option<String> = None;
     let mut prompt: Option<String> = None;
+    let mut benchmark = false;
 
     // Parse "translate" command options
     let mut cmdline = cmdline;
@@ -67,6 +68,11 @@ pub fn command_translate_and_print(
 
             ["--debug", ..] => {
                 debug = true;
+                cmdline = &cmdline[1..];
+            }
+
+            ["--benchmark", ..] => {
+                benchmark = true;
                 cmdline = &cmdline[1..];
             }
 
@@ -181,6 +187,7 @@ pub fn command_translate_and_print(
             copy_comments: true,
             keyword_matcher: force_matcher,
             prompt: prompt.clone(),
+            benchmark,
         };
         translate_and_print(ctx, &config, &messages)?;
     }
@@ -218,6 +225,7 @@ struct TranslateConfig<'a> {
     copy_comments: bool,
     keyword_matcher: Option<Regex>,
     prompt: Option<String>,
+    benchmark: bool,
 }
 
 fn translate_and_print(
@@ -225,6 +233,9 @@ fn translate_and_print(
     config: &TranslateConfig,
     messages: &[PoMessage],
 ) -> Result<()> {
+    let mut score_sum = 0.0;
+    let mut score_count = 0u32;
+
     for message in messages {
         let should_force = config
             .keyword_matcher
@@ -232,23 +243,97 @@ fn translate_and_print(
             .map(|re| re.is_match(&message.msgid))
             .unwrap_or(false);
 
-        if message.is_header() || (message.is_translated() && !message.is_fuzzy() && !should_force)
-        {
-            // Just copy headers and translated messages
+        if message.is_header() {
+            // Headers are always passed through unchanged
+            writeln!(ctx.out, "{message}")?;
+        } else if config.benchmark {
+            // In benchmark mode, process all non-header messages
+            let (score, scored) = translate_benchmark_message(ctx, config, message)?;
+            if scored {
+                score_sum += score;
+                score_count += 1;
+            }
+        } else if message.is_translated() && !message.is_fuzzy() && !should_force {
+            // Just copy already-translated messages
             writeln!(ctx.out, "{message}")?;
         } else {
             translate_single_message(ctx, config, message)?;
         }
     }
 
+    // Print summary to stderr
+    if score_count > 0 {
+        let avg = score_sum / score_count as f64;
+        writeln!(
+            ctx.err,
+            "BENCHMARK SUMMARY: {} messages scored, average similarity: {:.4}",
+            score_count, avg
+        )?;
+    }
+
     Ok(())
 }
 
-fn translate_single_message(
+/// Translate a single message in benchmark mode.
+/// Returns (score, was_scored) — if the message was skipped (header, etc.), was_scored is false.
+fn translate_benchmark_message(
     ctx: &mut IoContext,
     config: &TranslateConfig,
     message: &PoMessage,
-) -> Result<()> {
+) -> Result<(f64, bool)> {
+    if !message.is_translated() {
+        // Output original message unchanged and do not score
+        writeln!(ctx.out, "{}", message)?;
+        return Ok((0.0, false));
+    }
+
+    // Erase translated message
+    let mut message_to_translate = message.clone();
+    message_to_translate.msgstr = Vec::new();
+
+    // Get AI translation
+    let ai_msgstr = match translate_and_get_ai_msgstr(ctx, config, &message_to_translate) {
+        Ok(ai_str) => ai_str,
+        Err(e) => {
+            writeln!(
+                ctx.err,
+                "[Benchmark] Warning: AI translation failed for msgid \"{}\": {}",
+                message.msgid, e
+            )?;
+            // Output original message with error comment
+            let mut msg = message.clone();
+            msg.comments
+                .insert(0, "# Benchmark: ERROR - AI translation failed".to_string());
+            writeln!(ctx.out, "{}", msg)?;
+            return Ok((0.0, true));
+        }
+    };
+
+    // Compare human vs AI using normalized Levenshtein
+    let human_msgstr = message.msgstr_first();
+    let score = normalized_levenshtein(human_msgstr, &ai_msgstr);
+
+    // Print per-message score to stderr
+    writeln!(ctx.err, "[Score: {:.4}]", score)?;
+
+    // Build benchmark comment with AI translation (escaped for PO format)
+    let ai_escaped = crate::parser::escape_string(&ai_msgstr);
+    let benchmark_comment = format!("# Benchmark: Score={:.4} | AI: {}", score, ai_escaped);
+
+    // Output original message with benchmark comment prepended
+    let mut msg = message.clone();
+    msg.comments.insert(0, benchmark_comment);
+    writeln!(ctx.out, "{}", msg)?;
+
+    Ok((score, true))
+}
+
+/// Common logic for calling AI translator and getting the raw string slice of translation.
+fn execute_ai_translation_request(
+    ctx: &mut IoContext,
+    config: &TranslateConfig,
+    message: &PoMessage,
+) -> Result<String> {
     let fuzzy_matches = find_fuzzy_matches(message, config.tm_messages);
     let fuzzy_match_text = if !fuzzy_matches.is_empty() {
         let mut text = format!(
@@ -354,31 +439,40 @@ Produce only the {language} translation, without any additional explanations or 
         )?;
     }
 
-    let new_message_text_cleaned = if let Some(start) = new_message_text.rfind("</think>") {
-        // Skip thinking output from reasoning models
-        let tag_len = "</think>".len();
-        &new_message_text[(start + tag_len)..]
-    } else {
-        &new_message_text[..]
-    };
+    // Skip thinking/reasoning tags from reasoning models
+    let mut cleaned_text = &new_message_text[..];
+    for tag in &["</think>", "</reasoning>"] {
+        if let Some(start) = cleaned_text.rfind(tag) {
+            cleaned_text = &cleaned_text[(start + tag.len())..];
+        }
+    }
 
-    let new_message_text_slice = if let Some(end) = new_message_text_cleaned.rfind("</message>") {
+    let new_message_text_slice = if let Some(end) = cleaned_text.rfind("</message>") {
         // Extract text between <message> and </message>, if they are present
         let tag_open = "<message>";
-        if let Some(start) = new_message_text_cleaned[..end].rfind(tag_open) {
-            &new_message_text_cleaned[(start + tag_open.len())..end]
+        if let Some(start) = cleaned_text[..end].rfind(tag_open) {
+            &cleaned_text[(start + tag_open.len())..end]
         } else {
-            // Found </message> but no <message> before it. Fallback to whole string or msgid search.
-            new_message_text_cleaned
+            cleaned_text
         }
-    } else if let Some(start) = new_message_text_cleaned.rfind("msgid ") {
-        // Unwrapped message found
-        &new_message_text_cleaned[start..]
+    } else if let Some(start) = cleaned_text.rfind("msgid ") {
+        &cleaned_text[start..]
     } else {
-        // Message not found
-        new_message_text_cleaned
+        cleaned_text
     };
 
+    Ok(new_message_text_slice.to_string())
+}
+
+/// Helper: run the AI translation for a single message and return the AI's msgstr[0] string.
+fn translate_and_get_ai_msgstr(
+    ctx: &mut IoContext,
+    config: &TranslateConfig,
+    message: &PoMessage,
+) -> Result<String> {
+    let new_message_text_slice = execute_ai_translation_request(ctx, config, message)?;
+
+    let is_plural = message.is_plural();
     let parser = Parser {
         number_of_plural_cases: if is_plural {
             Some(config.number_of_plural_cases.unwrap_or(2))
@@ -389,7 +483,44 @@ Produce only the {language} translation, without any additional explanations or 
         strip_comments: true,
     };
 
-    match parser.parse_message_from_str(new_message_text_slice) {
+    match parser.parse_message_from_str(&new_message_text_slice) {
+        Ok(ai_message) => {
+            let result = ai_message.msgstr_first().to_string();
+            if result.is_empty() {
+                anyhow::bail!("AI returned an empty translation");
+            }
+            Ok(result)
+        }
+        Err(e) => {
+            writeln!(
+                ctx.err,
+                "[Benchmark] Warning: Cannot parse AI response for msgid \"{}\": {}",
+                message.msgid, e
+            )?;
+            anyhow::bail!("Cannot parse AI response: {e}");
+        }
+    }
+}
+
+fn translate_single_message(
+    ctx: &mut IoContext,
+    config: &TranslateConfig,
+    message: &PoMessage,
+) -> Result<()> {
+    let new_message_text_slice = execute_ai_translation_request(ctx, config, message)?;
+
+    let is_plural = message.is_plural();
+    let parser = Parser {
+        number_of_plural_cases: if is_plural {
+            Some(config.number_of_plural_cases.unwrap_or(2))
+        } else {
+            config.number_of_plural_cases
+        },
+        ignore_garbage_after_msgstr: true,
+        strip_comments: true,
+    };
+
+    match parser.parse_message_from_str(&new_message_text_slice) {
         Ok(mut new_message) => {
             if config.copy_comments {
                 new_message.comments = message.comments.clone();
@@ -481,6 +612,10 @@ OPTIONS:
   -p | --prompt PROMPT  Additional instructions for AI models during translation.
 
   --debug               Print inputs and outputs of AI models to stderr.
+
+  --benchmark           Compare AI translations with existing human translations.
+                        Outputs original messages with benchmark score comments in stdout,
+                        and per-message scores plus summary to stderr.
 "#
         )
     )?;
@@ -511,6 +646,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
@@ -547,6 +683,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let message = parser.parse_message_from_str("# comment\nmsgid \"a\"\nmsgstr \"\"\n")?;
@@ -585,6 +722,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         // already translated message
@@ -624,6 +762,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         // fuzzy message
@@ -654,7 +793,7 @@ mod tests {
         let parser = Parser::new(None);
 
         let config = TranslateConfig {
-            // AI "forgot" the %d symbol
+            // Backend should not be called
             backend: AiBackend::mock("msgid \"a %d\"\nmsgstr \"translated_a\""),
             language: "Ukrainian",
             number_of_plural_cases: None,
@@ -664,6 +803,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let message = parser.parse_message_from_str("msgid \"a %d\"\nmsgstr \"\"\n")?;
@@ -691,7 +831,7 @@ mod tests {
         let parser = Parser::new(None);
 
         let config = TranslateConfig {
-            // AI "forgot" the trailing space
+            // Backend should not be called
             backend: AiBackend::mock("msgid \"a \"\nmsgstr \"translated_a\""),
             language: "Ukrainian",
             number_of_plural_cases: None,
@@ -701,6 +841,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let message = parser.parse_message_from_str("msgid \"a \"\nmsgstr \"\"\n")?;
@@ -737,6 +878,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: Some(Regex::new(r"(?i)\bkeywords?\b").unwrap()),
             prompt: None,
+            benchmark: false,
         };
 
         // already translated message with keyword in msgid
@@ -779,6 +921,7 @@ mod tests {
             copy_comments: false,
             keyword_matcher: Some(Regex::new(r"(?i)\btags?\b").unwrap()),
             prompt: None,
+            benchmark: false,
         };
 
         let message =
@@ -814,6 +957,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: Some("USE VERY FORMAL STYLE".to_string()),
+            benchmark: false,
         };
 
         let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
@@ -900,6 +1044,7 @@ mod tests {
                 copy_comments: false,
                 keyword_matcher: Some(tag_regex.clone()),
                 prompt: None,
+                benchmark: false,
             };
 
             let message =
@@ -943,6 +1088,7 @@ mod tests {
             copy_comments: false,
             keyword_matcher: Some(Regex::new(r"(?i)\bbig endians?\b").unwrap()),
             prompt: None,
+            benchmark: false,
         };
 
         let message =
@@ -980,6 +1126,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let message = parser.parse_message_from_str("msgid \"a\"\nmsgstr \"\"\n")?;
@@ -1024,6 +1171,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let parser = Parser::new(Some(3));
@@ -1066,6 +1214,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let parser = Parser::new(Some(3));
@@ -1109,6 +1258,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let parser = Parser::new(Some(3));
@@ -1153,6 +1303,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let parser = Parser::new(Some(3));
@@ -1200,6 +1351,7 @@ mod tests {
             copy_comments: true,
             keyword_matcher: None,
             prompt: None,
+            benchmark: false,
         };
 
         let parser = Parser::new(Some(3));
@@ -1223,6 +1375,228 @@ mod tests {
 
         let stderr = String::from_utf8(err)?;
         assert_eq!(stderr, "", "unexpected stderr output: {stderr}");
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------------------
+    // Benchmark mode tests
+    // ---------------------------------------------------------------------------
+
+    /// In benchmark mode, the original human translation is preserved and a score comment is added.
+    #[test]
+    fn test_benchmark_basic() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("msgid \"hello world\"\nmsgstr \"привіт світ\""),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+            benchmark: true,
+        };
+
+        // Message already has a human translation
+        let message =
+            parser.parse_message_from_str("msgid \"hello world\"\nmsgstr \"привіт, світ\"")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // Human translation must be preserved
+        assert!(result.contains("msgstr \"привіт, світ\""));
+        // Benchmark comment with score should be present
+        assert!(
+            result.contains("Benchmark:"),
+            "expected benchmark comment in:\n{result}"
+        );
+        assert!(result.contains("Score="), "expected Score= in:\n{result}");
+        assert!(
+            result.contains("AI: привіт світ"),
+            "expected AI translation in comments:\n{result}"
+        );
+
+        let stderr = String::from_utf8(err)?;
+        // Per-message score and summary should be in stderr
+        assert!(
+            stderr.contains("[Score:"),
+            "expected per-message score in stderr: {stderr}"
+        );
+        assert!(
+            stderr.contains("BENCHMARK SUMMARY"),
+            "expected summary in stderr: {stderr}"
+        );
+        Ok(())
+    }
+
+    /// Benchmark mode outputs headers unchanged.
+    #[test]
+    fn test_benchmark_header_passthrough() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("SHOULD_NOT_APPEAR"),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+            benchmark: true,
+        };
+
+        let header = parser.parse_message_from_str("msgid \"\"\nmsgstr \"header content\"")?;
+        translate_and_print(&mut ctx, &config, &[header])?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("msgstr \"header content\""));
+        assert!(!result.contains("Benchmark:"));
+        assert!(!result.contains("SHOULD_NOT_APPEAR"));
+        Ok(())
+    }
+
+    /// Benchmark mode handles AI translation failure gracefully.
+    #[test]
+    fn test_benchmark_ai_failure() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock("INVALID AI OUTPUT THAT CANNOT BE PARSED"),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+            benchmark: true,
+        };
+
+        let message =
+            parser.parse_message_from_str("msgid \"test msg\"\nmsgstr \"human translation\"")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // Original human translation should still be preserved
+        assert!(result.contains("msgstr \"human translation\""));
+        // Error comment should indicate failure
+        assert!(
+            result.contains("Benchmark:"),
+            "expected benchmark comment:\n{result}"
+        );
+
+        let stderr = String::from_utf8(err)?;
+        assert!(
+            stderr.contains("Warning"),
+            "expected warning in stderr: {stderr}"
+        );
+        Ok(())
+    }
+
+    /// Benchmark mode skips untranslated messages (since there is no human translation to compare against).
+    #[test]
+    fn test_benchmark_untranslated_skipped() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        let config = TranslateConfig {
+            // Backend should not be called because the message is untranslated and should be skipped from scoring
+            backend: AiBackend::mock("SHOULD_NOT_BE_CALLED"),
+            language: "Ukrainian",
+            number_of_plural_cases: None,
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+            benchmark: true,
+        };
+
+        let message = parser.parse_message_from_str("msgid \"hello world\"\nmsgstr \"\"")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // Original message should be output unchanged
+        assert!(result.contains("msgstr \"\""));
+        assert!(!result.contains("Benchmark:"));
+
+        let stderr = String::from_utf8(err)?;
+        // Summary should not count the skipped message
+        assert!(!stderr.contains("BENCHMARK SUMMARY"));
+        Ok(())
+    }
+
+    /// Benchmark mode can score plural messages by comparing the first plural form.
+    #[test]
+    fn test_benchmark_plural() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+
+        // Mock AI returns a plural message
+        let ai_response = "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"";
+
+        let config = TranslateConfig {
+            backend: AiBackend::mock(ai_response),
+            language: "Ukrainian",
+            number_of_plural_cases: Some(2),
+            tm_messages: &[],
+            dictionaries: &[],
+            debug: false,
+            copy_comments: true,
+            keyword_matcher: None,
+            prompt: None,
+            benchmark: true,
+        };
+
+        let parser = Parser::new(Some(2));
+        // Already translated human message
+        let message = parser.parse_message_from_str("msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"")?;
+        translate_and_print(&mut ctx, &config, &[message])?;
+
+        let result = String::from_utf8(out)?;
+        // Original human translation is preserved
+        assert!(result.contains("msgstr[0] \"%d нова латка,\""));
+        assert!(result.contains("msgstr[1] \"%d нові латки,\""));
+        // Benchmark comment with high/perfect score (1.0000)
+        assert!(result.contains("Benchmark: Score=1.0000"));
+
+        let stderr = String::from_utf8(err)?;
+        assert!(stderr.contains("[Score: 1.0000]"));
+        assert!(stderr.contains("BENCHMARK SUMMARY: 1 messages scored"));
         Ok(())
     }
 }
