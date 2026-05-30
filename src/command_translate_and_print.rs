@@ -603,7 +603,7 @@ OPTIONS:
                         Example: --ai-command "ollama run gemma4:latest"
                         Options --model, --role, --rag will not work with this option.
 
-  --tm FILE             Local Translation Memory file (PO format) to use for fuzzy matching.
+  -M | --tm | --translation-memory FILE   Local Translation Memory file (PO format) to use for fuzzy matching.
 
   -d | --dictionary FILE  TSV dictionary file to use for context. Can be used multiple times.
 
