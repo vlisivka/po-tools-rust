@@ -388,22 +388,47 @@ msgstr[2] "%s нових латок,"
 
     // Translation template
     let message_text = format!(
-        r#"{dict_context}
+        r#"
+You are a professional, automated translation tool specializing in Gettext PO localization from English (en_US) to {language}.
+
+<rules>
+1. Output ONLY a valid Gettext PO message block. Do not include any explanations, markdown code blocks (like ```po), introduction, or commentary.
+2. The `msgid` field must be an EXACT, verbatim copy of the original `msgid` from the <message> tag, including all whitespace, quotes, and special characters.
+3. The `msgstr` field must contain the highly accurate translation into {language}, maintaining the tone, technical context, and nuances.
+4. STRICTLY adhere to the terminology provided in <dictionary> if applicable. Treat it as an absolute source of truth for specific terms.
+5. Use <context> (fuzzy matches) as a reference for style, consistency, and syntax structure, but ensure the final `msgstr` matches the current `msgid`.
+6. Never translate, modify, or output anything from the <dictionary> or <context> blocks directly; they are strictly for reference.
+</rules>
+
+<critical_violations_and_penalties>
+CRITICAL FAILURE 1 [Corrupted Structure]: Writing the translation into the `msgid` field or modifying the `msgid` in any way. 
+- CONSEQUENCE: The entire PO file breaks. `msgid` MUST remain 100% identical to the source text. Translation belongs ONLY inside `msgstr`.
+
+CRITICAL FAILURE 2 [Chatter/Leaking]: Including introductory text (e.g., "Sure, here is the translation:") or wrapping the output in markdown code blocks (
+```po ... ```).
+- CONSEQUENCE: Parser crash. Output must start directly with `msgid` and end with `msgstr`.
+
+CRITICAL FAILURE 3 [Reference Leakage]: Copying words or phrases from <dictionary> or <context> that do not belong to the current <message>.
+- CONSEQUENCE: Semantic pollution. Use reference data ONLY when it directly matches the words inside the current `msgid`.
+
+CRITICAL FAILURE 4 [Unescaped Characters]: Failing to escape quotes (\") or newlines (\n) inside `msgstr` if they were escaped in `msgid`.
+- CONSEQUENCE: Syntax error. Control characters and formatting must be strictly preserved.
+</critical_violations_and_penalties>
+
+{dict_context}
 {fuzzy_match_text}
-<instruction>
-IMPORTANT: Translate text in <message></message> tag only and _nothing else_.
-IMPORTANT: Answers must be VALID Gettext PO messages. Msgid field must be verbatim copy of original msgid, while msgstr must be {language} translation.
-IMPORTANT: Don't translate <context> and <dictionary>. They are just for reference.
-IMPORTANT: Prefer translations proposed by dictionary.
-You are a professional English (en_US) to {language} translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to {language} grammar, vocabulary, and cultural sensitivities.
-Produce only the {language} translation, without any additional explanations or commentary. Please translate the following English text in <message></message> into {language}.
-{prompt_text}
-</instruction>
 
 <message>
 {message}
 </message>
+
+{prompt_text}
 {example}
+
+Expected Output Format:
+msgid "..."
+msgstr "..."
+
 "#,
         language = config.language
     );
