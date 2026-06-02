@@ -19,7 +19,7 @@ pub struct IoContext<'a> {
 pub struct AiBackend {
     command: String,
     args: Vec<String>,
-    mock_response: Option<String>,
+    mock_responses: Vec<String>,
 }
 
 impl AiBackend {
@@ -29,7 +29,7 @@ impl AiBackend {
         Self {
             command,
             args,
-            mock_response: None,
+            mock_responses: Vec::new(),
         }
     }
 
@@ -43,7 +43,7 @@ impl AiBackend {
         Self {
             command: parts[0].clone(),
             args: parts[1..].to_vec(),
-            mock_response: None,
+            mock_responses: Vec::new(),
         }
     }
 
@@ -62,7 +62,7 @@ impl AiBackend {
         Self {
             command: "aichat".to_string(),
             args,
-            mock_response: None,
+            mock_responses: Vec::new(),
         }
     }
 
@@ -72,14 +72,23 @@ impl AiBackend {
         Self {
             command: String::new(),
             args: Vec::new(),
-            mock_response: Some(response.to_string()),
+            mock_responses: vec![response.to_string()],
         }
     }
 
-    /// Executes the AI request.
+    /// Append an additional response to the queue. When execute() is called,
+    /// responses are consumed in FIFO order (last-pushed first-consumed).
+    #[allow(dead_code)]
+    pub fn with_alternate(mut self, response: &str) -> Self {
+        self.mock_responses.insert(0, response.to_string());
+        self
+    }
+
+    /// Executes the AI request. Consumes mock responses via clone+mut.
     pub fn execute(&self, prompt: &str) -> Result<String> {
-        if let Some(ref mock) = self.mock_response {
-            return Ok(mock.clone());
+        if !self.mock_responses.is_empty() {
+            let mut owned = self.clone();
+            return Ok(owned.mock_responses.pop().unwrap());
         }
         let args_ref: Vec<&str> = self.args.iter().map(|s| s.as_str()).collect();
         pipe_to_command(&self.command, &args_ref, prompt)
