@@ -6,7 +6,7 @@
 
 use crate::parser::{Parser, PoMessage};
 use crate::util::IoContext;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::io::Write;
 
 /// Entry point for the `review-interactive` command.
@@ -18,6 +18,7 @@ pub fn command_review_interactive(
     let mut original_file: Option<&str> = None;
     let mut ai_translated_file: Option<&str> = None;
     let mut output_file: Option<&str> = None;
+    let mut editor: Option<String> = None;
 
     // Parse arguments
     let mut args = cmdline.iter().peekable();
@@ -27,6 +28,14 @@ pub fn command_review_interactive(
                 "-h" | "--help" => {
                     help_review_interactive(ctx.out)?;
                     return Ok(());
+                }
+                "--editor" => {
+                    args.next();
+                    if let Some(&editor_arg) = args.peek() {
+                        editor = Some(editor_arg.to_string());
+                    } else {
+                        bail!("--editor requires an argument");
+                    }
                 }
                 _ => bail!("Unknown option: {}", arg),
             }
@@ -57,6 +66,9 @@ pub fn command_review_interactive(
         .parse_messages_from_str(&existing_output)
         .unwrap_or_default();
 
+    // Resolve editor (from option, env var, or user prompt)
+    let resolved_editor = resolve_editor(ctx, editor.as_deref())?;
+
     // Perform interactive review
     review_interactive_sequential(
         ctx,
@@ -64,9 +76,73 @@ pub fn command_review_interactive(
         &ai_messages,
         &existing_messages,
         output_file,
+        &resolved_editor,
     )?;
 
     Ok(())
+}
+
+/// Resolves the editor to use for editing messages.
+/// Priority: --editor option > $EDITOR env var > user prompt
+fn resolve_editor(ctx: &mut IoContext, cli_editor: Option<&str>) -> Result<String> {
+    // Priority 1: CLI option
+    if let Some(editor) = cli_editor {
+        return Ok(editor.to_string());
+    }
+
+    // Priority 2: $EDITOR environment variable
+    if let Ok(editor) = std::env::var("EDITOR")
+        && !editor.is_empty()
+    {
+        return Ok(editor);
+    }
+
+    // Priority 3: Prompt user for editor name
+    write!(
+        ctx.out,
+        "No editor configured. Enter editor command (e.g., vim, nano): "
+    )?;
+    ctx.out.flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let editor = input.trim().to_string();
+
+    if editor.is_empty() {
+        bail!("No editor specified");
+    }
+
+    Ok(editor)
+}
+
+/// Edits a message using the configured editor.
+/// Returns the edited content if successful, None if editing failed or was cancelled.
+fn edit_message(content: &str, editor: &str) -> Result<Option<String>> {
+    // Create temporary file
+    let temp_file = tempfile::NamedTempFile::new()
+        .map_err(|e| anyhow::anyhow!("Failed to create temporary file: {}", e))?;
+
+    // Write content to temp file
+    std::fs::write(temp_file.path(), content.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Failed to write to temporary file: {}", e))?;
+
+    // Launch editor
+    let mut command = std::process::Command::new(editor);
+    command.arg(temp_file.path());
+    let status = command
+        .status()
+        .map_err(|e| anyhow::anyhow!("Failed to launch editor '{}': {}", editor, e))?;
+
+    // Check if editor exited successfully
+    if !status.success() {
+        return Ok(None);
+    }
+
+    // Read edited content
+    let edited_content = std::fs::read_to_string(temp_file.path())
+        .map_err(|e| anyhow::anyhow!("Failed to read edited file: {}", e))?;
+
+    Ok(Some(edited_content))
 }
 
 /// Core review loop that presents messages sequentially and collects user decisions.
@@ -76,6 +152,7 @@ fn review_interactive_sequential(
     ai_messages: &[PoMessage],
     existing_output_messages: &[PoMessage],
     output_file_path: &str,
+    editor: &str,
 ) -> Result<()> {
     // Open output file for appending
     let mut output_file = std::fs::OpenOptions::new()
@@ -130,7 +207,7 @@ fn review_interactive_sequential(
             }
 
             // Prompt user
-            write!(ctx.out, "\nAccept this translation? [Y/n] ")?;
+            write!(ctx.out, "\nAccept this translation? [Y/n/e] ")?;
             ctx.out.flush()?;
 
             // Read input
@@ -138,10 +215,28 @@ fn review_interactive_sequential(
             std::io::stdin().read_line(&mut input)?;
             let decision = input.trim().to_lowercase();
 
-            if decision == "y" || decision.is_empty() {
-                writeln!(output_file, "\n{}", ai)?;
-            } else {
-                writeln!(output_file, "\n{}", orig)?;
+            match decision.as_str() {
+                "y" | "" => {
+                    // Accept AI translation as-is
+                    writeln!(output_file, "\n{}", ai)?;
+                }
+                "e" => {
+                    // Edit the proposed translation in system editor
+                    let edited = edit_message(ai.msgstr_first(), editor)?;
+                    if let Some(edited_content) = edited {
+                        // Write edited content to output (create a new PoMessage)
+                        let mut edited_msg = orig.clone();
+                        edited_msg.msgstr = vec![edited_content];
+                        writeln!(output_file, "\n{}", edited_msg)?;
+                    } else {
+                        // Editing failed or no changes - write original
+                        writeln!(output_file, "\n{}", orig)?;
+                    }
+                }
+                _ => {
+                    // Reject - write original message
+                    writeln!(output_file, "\n{}", orig)?;
+                }
             }
         } else {
             // AI translation doesn't exist or is identical - write original
@@ -261,7 +356,6 @@ OPTIONS:
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_sequential_iteration_order() {
         // Verify that AI lookup preserves order when iterating through original messages
@@ -328,8 +422,8 @@ mod tests {
     fn test_highlight_partial_diff() {
         let result = highlight_diff("abc", "adc");
         assert!(result.contains('\n')); // should have two lines
-                                        // First line: original with b highlighted (deleted)
-                                        // Second line: proposed with d highlighted (added)
+        // First line: original with b highlighted (deleted)
+        // Second line: proposed with d highlighted (added)
         let lines: Vec<&str> = result.lines().collect();
         assert_eq!(lines.len(), 2);
     }
@@ -357,5 +451,52 @@ mod tests {
     fn test_highlight_unicode_diff() {
         let result = highlight_diff("hello world", "hello universe");
         assert!(result.contains("\x1b[")); // should contain ANSI codes for differing parts
+    }
+
+    #[test]
+    fn test_edit_message_no_changes() {
+        // Test that edit_message returns None when content is unchanged
+        let original = "Hello World";
+
+        let result = edit_message(original, "/usr/bin/true").unwrap();
+        assert!(result.is_some());
+
+        // Should NOT have a trailing newline
+        let edited = result.unwrap();
+        assert_eq!(edited, "Hello World");
+    }
+
+    #[test]
+    fn test_edit_message_no_trailing_newline_added() {
+        // Test that edit_message does NOT add a trailing newline to the content
+        let original = "Hello World"; // No trailing newline
+
+        let result = edit_message(original, "/usr/bin/true").unwrap();
+        assert!(result.is_some());
+
+        // Should NOT have a trailing newline
+        let edited = result.unwrap();
+        assert!(
+            !edited.ends_with('\n'),
+            "Edited content should not have trailing newline"
+        );
+        assert_eq!(edited, "Hello World");
+    }
+
+    #[test]
+    fn test_edit_message_preserves_newline() {
+        // Test that newline  is preserved correctly
+        let original = "Hello World\n"; // With trailing newline
+
+        let result = edit_message(original, "/usr/bin/true").unwrap();
+        assert!(result.is_some());
+
+        // Must have a trailing newline preserved
+        let edited = result.unwrap();
+        assert!(
+            edited.ends_with('\n'),
+            "Edited content must have trailing newline preserved"
+        );
+        assert_eq!(edited, "Hello World\n");
     }
 }
