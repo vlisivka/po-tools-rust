@@ -194,8 +194,11 @@ fn review_interactive_sequential(
                 let needs_review = orig.msgstr_first() != current_ai.msgstr_first();
 
                 if !needs_review {
-                    // Edited content now matches original AI translation - accept
-                    writeln!(output_file, "\n{}", current_ai)?;
+                    // Edited content now matches original AI translation - accept,
+                    // remove fuzzy flag since it's now human-approved
+                    let mut msg = current_ai.clone();
+                    msg.comments.retain(|c| !c.starts_with("#, fuzzy"));
+                    writeln!(output_file, "\n{}", msg)?;
                     break;
                 }
 
@@ -228,8 +231,11 @@ fn review_interactive_sequential(
 
                 match decision.as_str() {
                     "y" | "" => {
-                        // Accept current AI translation as-is
-                        writeln!(output_file, "\n{}", current_ai)?;
+                        // Accept current AI translation as-is,
+                        // remove fuzzy flag since it's now human-approved
+                        let mut msg = current_ai.clone();
+                        msg.comments.retain(|c| !c.starts_with("#, fuzzy"));
+                        writeln!(output_file, "\n{}", msg)?;
                         break;
                     }
                     "e" => {
