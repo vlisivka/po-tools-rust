@@ -204,6 +204,15 @@ fn review_interactive_sequential(
 
                 // Show to user for review
                 writeln!(ctx.out, "\n")?;
+
+                // Show AI translator's comments (may contain helpful hints)
+                // Display before msgctxt and msgid so they're visible as context
+                for comment in &current_ai.comments {
+                    if !comment.starts_with("#, fuzzy") {
+                        writeln!(ctx.out, "{}", comment)?;
+                    }
+                }
+
                 if let Some(ref msgctx) = current_ai.msgctxt {
                     writeln!(ctx.out, "# msgctx: {}", msgctx)?;
                 }
