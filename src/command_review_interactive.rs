@@ -1,0 +1,361 @@
+//! Command to perform interactive manual review of PO file translations.
+//!
+//! This command compares original and AI-translated PO files, presents differing
+//! messages sequentially with diff highlighting, and allows users to selectively
+//! approve translations into an output file.
+
+use crate::parser::{Parser, PoMessage};
+use crate::util::IoContext;
+use anyhow::{bail, Result};
+use std::io::Write;
+
+/// Entry point for the `review-interactive` command.
+pub fn command_review_interactive(
+    parser: &Parser,
+    cmdline: &[&str],
+    ctx: &mut IoContext,
+) -> Result<()> {
+    let mut original_file: Option<&str> = None;
+    let mut ai_translated_file: Option<&str> = None;
+    let mut output_file: Option<&str> = None;
+
+    // Parse arguments
+    let mut args = cmdline.iter().peekable();
+    while let Some(&arg) = args.peek() {
+        if arg.starts_with('-') {
+            match *arg {
+                "-h" | "--help" => {
+                    help_review_interactive(ctx.out)?;
+                    return Ok(());
+                }
+                _ => bail!("Unknown option: {}", arg),
+            }
+        } else {
+            match args.next() {
+                Some(&file) if original_file.is_none() => original_file = Some(file),
+                Some(&file) if ai_translated_file.is_none() => ai_translated_file = Some(file),
+                Some(&file) if output_file.is_none() => output_file = Some(file),
+                _ => bail!("Unexpected argument: {}", arg),
+            }
+        }
+    }
+
+    let original_file =
+        original_file.ok_or_else(|| anyhow::anyhow!("Missing original file argument"))?;
+    let ai_translated_file =
+        ai_translated_file.ok_or_else(|| anyhow::anyhow!("Missing AI translated file argument"))?;
+    let output_file = output_file.ok_or_else(|| anyhow::anyhow!("Missing output file argument"))?;
+
+    // Parse files
+    let original_messages = parser.parse_messages_from_file(original_file)?;
+    let ai_messages = parser.parse_messages_from_file(ai_translated_file)?;
+
+    // Load existing output file (if it exists)
+    let existing_output = std::fs::read_to_string(output_file).unwrap_or_default();
+    let existing_parser = Parser::new(None);
+    let existing_messages = existing_parser
+        .parse_messages_from_str(&existing_output)
+        .unwrap_or_default();
+
+    // Perform interactive review
+    review_interactive_sequential(
+        ctx,
+        &original_messages,
+        &ai_messages,
+        &existing_messages,
+        output_file,
+    )?;
+
+    Ok(())
+}
+
+/// Core review loop that presents messages sequentially and collects user decisions.
+fn review_interactive_sequential(
+    ctx: &mut IoContext,
+    original_messages: &[PoMessage],
+    ai_messages: &[PoMessage],
+    existing_output_messages: &[PoMessage],
+    output_file_path: &str,
+) -> Result<()> {
+    // Open output file for appending
+    let mut output_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(output_file_path)?;
+
+    // Build set of already-approved msgids
+    let approved_msgids: Vec<String> = existing_output_messages
+        .iter()
+        .filter(|m| !m.is_header())
+        .map(|m| m.msgid.clone())
+        .collect();
+
+    // Build AI messages lookup by msgid for efficient matching
+    let ai_lookup: std::collections::HashMap<&str, &PoMessage> =
+        ai_messages.iter().map(|m| (m.msgid.as_str(), m)).collect();
+
+    // Sequential iteration through original messages (preserving order)
+    for orig in original_messages {
+        // Skip if already in output file
+        if approved_msgids.contains(&orig.msgid) {
+            continue;
+        }
+
+        // Find matching AI translation
+        let ai_message = ai_lookup.get(orig.msgid.as_str());
+
+        // Check if AI translation exists and differs from original
+        let needs_review = ai_message
+            .map(|ai| orig.msgstr_first() != ai.msgstr_first())
+            .unwrap_or(false);
+
+        if needs_review {
+            // Show to user for review
+            let ai = ai_message.unwrap();
+            writeln!(ctx.out, "\n")?;
+            if let Some(ref msgctx) = ai.msgctxt {
+                writeln!(ctx.out, "# msgctx: {}", msgctx)?;
+            }
+            writeln!(ctx.out, "msgid  \"{}\"", orig.msgid)?;
+
+            // Display original and AI translation with highlighting
+            let orig_msgstr = orig.msgstr_first();
+            let ai_msgstr = ai.msgstr_first();
+
+            let highlighted = highlight_diff(orig_msgstr, ai_msgstr);
+            let lines: Vec<&str> = highlighted.lines().collect();
+            if lines.len() >= 2 {
+                writeln!(ctx.out, "msgstr \"{}\"", lines[0])?;
+                writeln!(ctx.out, "(new): \"{}\"", lines[1])?;
+            }
+
+            // Prompt user
+            write!(ctx.out, "\nAccept this translation? [Y/n] ")?;
+            ctx.out.flush()?;
+
+            // Read input
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input)?;
+            let decision = input.trim().to_lowercase();
+
+            if decision == "y" || decision.is_empty() {
+                writeln!(output_file, "\n{}", ai)?;
+            } else {
+                writeln!(output_file, "\n{}", orig)?;
+            }
+        } else {
+            // AI translation doesn't exist or is identical - write original
+            writeln!(output_file, "\n{}", orig)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Highlights differences between two strings using LCS-based diff.
+/// Returns two lines: original msgstr with red highlights on deletions,
+/// and proposed msgstr with green highlights on additions.
+fn highlight_diff(original: &str, translation: &str) -> String {
+    // Compute LCS table
+    let orig_chars: Vec<char> = original.chars().collect();
+    let trans_chars: Vec<char> = translation.chars().collect();
+    let m = orig_chars.len();
+    let n = trans_chars.len();
+
+    if m == 0 && n == 0 {
+        return "\n".to_string();
+    }
+
+    // Build LCS table
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+    for i in 1..=m {
+        for j in 1..=n {
+            if orig_chars[i - 1] == trans_chars[j - 1] {
+                dp[i][j] = dp[i - 1][j - 1] + 1;
+            } else {
+                dp[i][j] = dp[i - 1][j].max(dp[i][j - 1]);
+            }
+        }
+    }
+
+    // Backtrack to find diff operations
+    let mut ops: Vec<(char, OpType)> = Vec::new();
+    let (mut i, mut j) = (m, n);
+    while i > 0 && j > 0 {
+        if orig_chars[i - 1] == trans_chars[j - 1] {
+            ops.push((trans_chars[j - 1], OpType::Equal));
+            i -= 1;
+            j -= 1;
+        } else if dp[i - 1][j] > dp[i][j - 1] {
+            ops.push((orig_chars[i - 1], OpType::Delete));
+            i -= 1;
+        } else {
+            ops.push((trans_chars[j - 1], OpType::Add));
+            j -= 1;
+        }
+    }
+    while i > 0 {
+        ops.push((orig_chars[i - 1], OpType::Delete));
+        i -= 1;
+    }
+    while j > 0 {
+        ops.push((trans_chars[j - 1], OpType::Add));
+        j -= 1;
+    }
+    ops.reverse();
+
+    // Build highlighted strings
+    let mut orig_line = String::new();
+    let mut trans_line = String::new();
+
+    for (ch, op) in &ops {
+        match op {
+            OpType::Equal => {
+                orig_line.push(*ch);
+                trans_line.push(*ch);
+            }
+            OpType::Delete => {
+                orig_line.push_str(&format!("\x1b[41m{}\x1b[0m", ch));
+            }
+            OpType::Add => {
+                trans_line.push_str(&format!("\x1b[42m{}\x1b[0m", ch));
+            }
+        }
+    }
+
+    format!("{}\n{}", orig_line, trans_line)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum OpType {
+    Equal,
+    Delete,
+    Add,
+}
+
+/// Displays help text for the review-interactive command.
+fn help_review_interactive(out: &mut dyn Write) -> Result<()> {
+    writeln!(
+        out,
+        "{}",
+        tr!(
+            r#"Usage: po-tools [GLOBAL_OPTIONS] review-interactive ORIGINAL_FILE AI_TRANSLATED_FILE OUTPUT_FILE
+
+Interactive manual review of PO file translations.
+
+Compares original and AI-translated PO files, presents differing messages
+sequentially with diff highlighting, and allows selective approval of
+translations into an output file.
+
+Already-approved messages (detected by msgid in output file) are skipped.
+
+OPTIONS:
+
+  -h | --help     Show this help message
+"#
+        )
+    )?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sequential_iteration_order() {
+        // Verify that AI lookup preserves order when iterating through original messages
+        let parser = Parser::new(None);
+        let m1 = parser
+            .parse_message_from_str("msgid \"first\"\nmsgstr \"original1\"\n")
+            .unwrap();
+        let m2 = parser
+            .parse_message_from_str("msgid \"second\"\nmsgstr \"original2\"\n")
+            .unwrap();
+        let m3 = parser
+            .parse_message_from_str("msgid \"third\"\nmsgstr \"original3\"\n")
+            .unwrap();
+
+        let ai1 = parser
+            .parse_message_from_str("msgid \"first\"\nmsgstr \"ai1\"\n")
+            .unwrap();
+        let ai2 = parser
+            .parse_message_from_str("msgid \"second\"\nmsgstr \"ai2\"\n")
+            .unwrap();
+        let ai3 = parser
+            .parse_message_from_str("msgid \"third\"\nmsgstr \"ai3\"\n")
+            .unwrap();
+
+        // Verify AI lookup preserves order when iterating through original_messages
+        let ai_lookup: std::collections::HashMap<&str, &PoMessage> = [
+            (&ai1.msgid[..], &ai1),
+            (&ai2.msgid[..], &ai2),
+            (&ai3.msgid[..], &ai3),
+        ]
+        .iter()
+        .map(|(k, v)| (*k, *v))
+        .collect();
+
+        // Simulate sequential iteration through original_messages
+        let mut order = Vec::new();
+        for orig in [&m1, &m2, &m3] {
+            if let Some(ai) = ai_lookup.get(orig.msgid.as_str()) {
+                order.push(&ai.msgid);
+            }
+        }
+
+        assert_eq!(order.len(), 3);
+        assert_eq!(order[0], "first");
+        assert_eq!(order[1], "second");
+        assert_eq!(order[2], "third");
+    }
+
+    #[test]
+    fn test_highlight_no_diff() {
+        let result = highlight_diff("hello", "hello");
+        assert_eq!(result, "hello\nhello");
+    }
+
+    #[test]
+    fn test_highlight_full_diff() {
+        let result = highlight_diff("a", "b");
+        assert!(result.contains("\x1b[41m")); // red for deletion (original)
+        assert!(result.contains("\x1b[42m")); // green for addition (translation)
+        assert!(result.contains('\n')); // should have two lines
+    }
+
+    #[test]
+    fn test_highlight_partial_diff() {
+        let result = highlight_diff("abc", "adc");
+        assert!(result.contains('\n')); // should have two lines
+                                        // First line: original with b highlighted (deleted)
+                                        // Second line: proposed with d highlighted (added)
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn test_highlight_empty_original() {
+        let result = highlight_diff("", "hello");
+        assert!(result.contains('\n')); // should have two lines
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines[0], ""); // original is empty
+    }
+
+    #[test]
+    fn test_highlight_empty_translation() {
+        let result = highlight_diff("hello", "");
+        assert!(result.contains('\n')); // should have two lines
+        let lines: Vec<&str> = result.lines().collect();
+        // When translation is empty, the second line may not appear in lines()
+        // so we check if lines has at most 2 elements and first line has red highlights
+        assert!(lines.len() <= 2);
+        assert!(lines[0].contains("\x1b[41m")); // original has red highlights for deletions
+    }
+
+    #[test]
+    fn test_highlight_unicode_diff() {
+        let result = highlight_diff("hello world", "hello universe");
+        assert!(result.contains("\x1b[")); // should contain ANSI codes for differing parts
+    }
+}

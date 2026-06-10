@@ -65,6 +65,9 @@ use crate::command_erase_and_print::command_erase_and_print;
 mod command_check_symbols;
 use crate::command_check_symbols::command_check_symbols;
 
+mod command_review_interactive;
+use crate::command_review_interactive::command_review_interactive;
+
 mod util;
 
 mod dictionary;
@@ -132,6 +135,9 @@ fn main() -> Result<()> {
         ["translate", ref cmdline @ ..] => command_translate_and_print(&parser, cmdline, &mut ctx)?,
         ["erase", ref cmdline @ ..] => command_erase_and_print(&parser, cmdline, &mut ctx)?,
         ["review", ref cmdline @ ..] => command_review_files_and_print(&parser, cmdline, &mut ctx)?,
+        ["review-interactive", ref cmdline @ ..] => {
+            command_review_interactive(&parser, cmdline, &mut ctx)?
+        }
         ["compare", ref cmdline @ ..] => {
             command_compare_files_and_print(&parser, cmdline, &mut ctx)?
         }
