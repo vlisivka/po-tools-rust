@@ -256,7 +256,7 @@ fn review_interactive_sequential(
                 }
 
                 // Prompt user
-                write!(ctx.out, "\nAccept this translation? [Y/n/e] ")?;
+                write!(ctx.out, "\nAccept this translation? [Y/n/e/f] ")?;
                 ctx.out.flush()?;
 
                 // Read input
@@ -270,6 +270,19 @@ fn review_interactive_sequential(
                         // remove fuzzy flag since it's now human-approved
                         let mut msg = current_ai.clone();
                         msg.comments.retain(|c| !c.starts_with("#, fuzzy"));
+                        // Skip header messages - they're written once at file creation
+                        if !msg.is_header() {
+                            writeln!(output_file, "\n{}", msg)?;
+                        }
+                        break;
+                    }
+                    "f" => {
+                        // Accept current AI translation and ensure fuzzy flag is present
+                        let mut msg = current_ai.clone();
+                        // Add fuzzy flag if not already present
+                        if !msg.comments.iter().any(|c| c.starts_with("#, fuzzy")) {
+                            msg.comments.insert(0, "#, fuzzy".to_string());
+                        }
                         // Skip header messages - they're written once at file creation
                         if !msg.is_header() {
                             writeln!(output_file, "\n{}", msg)?;
