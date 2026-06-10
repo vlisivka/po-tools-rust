@@ -138,4 +138,20 @@ mod tests {
         let matches = dict.find_matches("No match here.");
         assert_eq!(matches.len(), 0);
     }
+
+    #[test]
+    fn test_from_file() -> Result<()> {
+        use std::io::Write;
+        let temp_file = tempfile::NamedTempFile::new()?;
+        writeln!(temp_file.as_file(), "hello\tbonjour")?;
+        writeln!(temp_file.as_file(), "world\tmonde")?;
+
+        let dict = Dictionary::from_file(temp_file.path())?;
+
+        // Verify that the dictionary has entries
+        assert!(!dict.entries.is_empty());
+        assert_eq!(dict.entries.len(), 2);
+
+        Ok(())
+    }
 }

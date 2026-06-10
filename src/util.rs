@@ -225,4 +225,39 @@ mod tests {
         assert_eq!(result, "custom response");
         Ok(())
     }
+
+    #[test]
+    fn test_ai_backend_new() {
+        let backend = AiBackend::new(
+            "aichat".to_string(),
+            vec!["-m".to_string(), "gpt-4".to_string()],
+        );
+        assert_eq!(backend.command, "aichat");
+        assert_eq!(backend.args, vec!["-m".to_string(), "gpt-4".to_string()]);
+    }
+
+    #[test]
+    fn test_ai_backend_from_command_line() {
+        let backend = AiBackend::from_command_line("aichat -m gpt-4");
+        assert_eq!(backend.command, "aichat");
+        assert_eq!(backend.args, vec!["-m".to_string(), "gpt-4".to_string()]);
+    }
+
+    #[test]
+    fn test_ai_backend_with_aichat_defaults() {
+        let backend = AiBackend::with_aichat_defaults("ollama:gemma", "translate", None);
+        assert_eq!(backend.command, "aichat");
+        assert!(backend.args.contains(&"-r".to_string()));
+        assert!(backend.args.contains(&"translate".to_string()));
+        assert!(backend.args.contains(&"-m".to_string()));
+        assert!(backend.args.contains(&"ollama:gemma".to_string()));
+    }
+
+    #[test]
+    fn test_ai_backend_with_aichat_defaults_with_rag() {
+        let backend = AiBackend::with_aichat_defaults("ollama:gemma", "translate", Some("context"));
+        assert_eq!(backend.command, "aichat");
+        assert!(backend.args.contains(&"--rag".to_string()));
+        assert!(backend.args.contains(&"context".to_string()));
+    }
 }

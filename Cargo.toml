@@ -8,10 +8,11 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/vlisivka/po-tools"
 
 [dependencies]
-anyhow="1.0.83"
-regex = "1.12.2"
+similar = "2.1"
 strsim = "0.11"
 unicode-bom = "2.0.3"
+anyhow = "1.0.83"
+regex = "1.12.2"
 
 [features]
 bundled-translations = []

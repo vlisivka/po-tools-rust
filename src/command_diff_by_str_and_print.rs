@@ -232,4 +232,41 @@ mod tests {
         assert!(result_err.contains("ERROR"));
         Ok(())
     }
+
+    #[test]
+    fn test_diffstr_plural_messages() -> Result<()> {
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut ctx = IoContext {
+            out: &mut out,
+            err: &mut err,
+        };
+        let parser = Parser::new(None);
+
+        // File 1: plural message with 2 cases
+        let f1 = NamedTempFile::new()?;
+        fs::write(
+            f1.path(),
+            "msgid \"file\"\nmsgid_plural \"files\"\nmsgstr[0] \"файл\"\nmsgstr[1] \"файли\"\n",
+        )?;
+
+        // File 2: plural message with different translations
+        let f2 = NamedTempFile::new()?;
+        fs::write(
+            f2.path(),
+            "msgid \"file\"\nmsgid_plural \"files\"\nmsgstr[0] \"archiv\"\nmsgstr[1] \"archivi\"\n",
+        )?;
+
+        command_diff_by_str_and_print(
+            &parser,
+            &[f1.path().to_str().unwrap(), f2.path().to_str().unwrap()],
+            &mut ctx,
+        )?;
+
+        let result = String::from_utf8(out)?;
+        assert!(result.contains("Original message"));
+        assert!(result.contains("файл"));
+        assert!(result.contains("archiv"));
+        Ok(())
+    }
 }

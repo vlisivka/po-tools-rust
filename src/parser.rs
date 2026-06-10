@@ -1157,4 +1157,14 @@ msgstr "активний"
         assert_eq!(rendered.trim(), po.trim());
         Ok(())
     }
+
+    #[test]
+    fn test_keyword_fmt() {
+        use super::Keyword;
+        assert_eq!(format!("{}", Keyword::Msgid), "msgid");
+        assert_eq!(format!("{}", Keyword::Msgctxt), "msgctxt");
+        assert_eq!(format!("{}", Keyword::Msgstr), "msgstr");
+        assert_eq!(format!("{}", Keyword::MsgidPlural), "msgid_plural");
+        assert_eq!(format!("{}", Keyword::MsgstrPlural(2)), "msgstr[N]");
+    }
 }
