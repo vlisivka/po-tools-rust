@@ -160,6 +160,20 @@ fn review_interactive_sequential(
         .append(true)
         .open(output_file_path)?;
 
+    // Check if output file is freshly created (empty or doesn't exist)
+    let is_fresh_file = std::fs::metadata(output_file_path)
+        .map(|m| m.len() == 0)
+        .unwrap_or(true);
+
+    // Write header only when file is freshly created
+    if is_fresh_file {
+        // Find and write the header from AI messages (contains translation metadata)
+        let header = ai_messages.iter().find(|m| m.is_header()).cloned();
+        if let Some(ref header) = header {
+            writeln!(output_file, "{}", header)?;
+        }
+    }
+
     // Build set of already-approved msgids
     let approved_msgids: Vec<String> = existing_output_messages
         .iter()
@@ -198,7 +212,10 @@ fn review_interactive_sequential(
                     // remove fuzzy flag since it's now human-approved
                     let mut msg = current_ai.clone();
                     msg.comments.retain(|c| !c.starts_with("#, fuzzy"));
-                    writeln!(output_file, "\n{}", msg)?;
+                    // Skip header messages - they're written once at file creation
+                    if !msg.is_header() {
+                        writeln!(output_file, "\n{}", msg)?;
+                    }
                     break;
                 }
 
@@ -244,7 +261,10 @@ fn review_interactive_sequential(
                         // remove fuzzy flag since it's now human-approved
                         let mut msg = current_ai.clone();
                         msg.comments.retain(|c| !c.starts_with("#, fuzzy"));
-                        writeln!(output_file, "\n{}", msg)?;
+                        // Skip header messages - they're written once at file creation
+                        if !msg.is_header() {
+                            writeln!(output_file, "\n{}", msg)?;
+                        }
                         break;
                     }
                     "e" => {
@@ -254,20 +274,29 @@ fn review_interactive_sequential(
                             current_ai.msgstr = vec![edited_content];
                         } else {
                             // Editing failed or no changes - write original and break
-                            writeln!(output_file, "\n{}", orig)?;
+                            // Skip header messages - they're written once at file creation
+                            if !orig.is_header() {
+                                writeln!(output_file, "\n{}", orig)?;
+                            }
                             break;
                         }
                     }
                     _ => {
                         // Reject - write original message and break
-                        writeln!(output_file, "\n{}", orig)?;
+                        // Skip header messages - they're written once at file creation
+                        if !orig.is_header() {
+                            writeln!(output_file, "\n{}", orig)?;
+                        }
                         break;
                     }
                 }
             }
         } else {
             // AI translation doesn't exist or is identical - write original
-            writeln!(output_file, "\n{}", orig)?;
+            // Skip header messages - they're written once at file creation
+            if !orig.is_header() {
+                writeln!(output_file, "\n{}", orig)?;
+            }
         }
     }
 
