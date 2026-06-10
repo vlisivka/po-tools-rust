@@ -187,55 +187,67 @@ fn review_interactive_sequential(
             .unwrap_or(false);
 
         if needs_review {
-            // Show to user for review
+            // Edit-and-review loop: keep showing the message until user accepts or rejects
             let ai = ai_message.unwrap();
-            writeln!(ctx.out, "\n")?;
-            if let Some(ref msgctx) = ai.msgctxt {
-                writeln!(ctx.out, "# msgctx: {}", msgctx)?;
-            }
-            writeln!(ctx.out, "msgid  \"{}\"", orig.msgid)?;
+            let mut current_ai = (*ai).clone();
+            loop {
+                let needs_review = orig.msgstr_first() != current_ai.msgstr_first();
 
-            // Display original and AI translation with highlighting
-            let orig_msgstr = orig.msgstr_first();
-            let ai_msgstr = ai.msgstr_first();
-
-            let highlighted = highlight_diff(orig_msgstr, ai_msgstr);
-            let lines: Vec<&str> = highlighted.lines().collect();
-            if lines.len() >= 2 {
-                writeln!(ctx.out, "msgstr \"{}\"", lines[0])?;
-                writeln!(ctx.out, "(new): \"{}\"", lines[1])?;
-            }
-
-            // Prompt user
-            write!(ctx.out, "\nAccept this translation? [Y/n/e] ")?;
-            ctx.out.flush()?;
-
-            // Read input
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-            let decision = input.trim().to_lowercase();
-
-            match decision.as_str() {
-                "y" | "" => {
-                    // Accept AI translation as-is
-                    writeln!(output_file, "\n{}", ai)?;
+                if !needs_review {
+                    // Edited content now matches original AI translation - accept
+                    writeln!(output_file, "\n{}", current_ai)?;
+                    break;
                 }
-                "e" => {
-                    // Edit the proposed translation in system editor
-                    let edited = edit_message(ai.msgstr_first(), editor)?;
-                    if let Some(edited_content) = edited {
-                        // Write edited content to output (create a new PoMessage)
-                        let mut edited_msg = orig.clone();
-                        edited_msg.msgstr = vec![edited_content];
-                        writeln!(output_file, "\n{}", edited_msg)?;
-                    } else {
-                        // Editing failed or no changes - write original
-                        writeln!(output_file, "\n{}", orig)?;
+
+                // Show to user for review
+                writeln!(ctx.out, "\n")?;
+                if let Some(ref msgctx) = current_ai.msgctxt {
+                    writeln!(ctx.out, "# msgctx: {}", msgctx)?;
+                }
+                writeln!(ctx.out, "msgid  \"{}\"", orig.msgid)?;
+
+                // Display original and current proposed translation with highlighting
+                let orig_msgstr = orig.msgstr_first();
+                let ai_msgstr = current_ai.msgstr_first();
+
+                let highlighted = highlight_diff(orig_msgstr, ai_msgstr);
+                let lines: Vec<&str> = highlighted.lines().collect();
+                if lines.len() >= 2 {
+                    writeln!(ctx.out, "msgstr \"{}\"", lines[0])?;
+                    writeln!(ctx.out, "(new): \"{}\"", lines[1])?;
+                }
+
+                // Prompt user
+                write!(ctx.out, "\nAccept this translation? [Y/n/e] ")?;
+                ctx.out.flush()?;
+
+                // Read input
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                let decision = input.trim().to_lowercase();
+
+                match decision.as_str() {
+                    "y" | "" => {
+                        // Accept current AI translation as-is
+                        writeln!(output_file, "\n{}", current_ai)?;
+                        break;
                     }
-                }
-                _ => {
-                    // Reject - write original message
-                    writeln!(output_file, "\n{}", orig)?;
+                    "e" => {
+                        // Edit the proposed translation in system editor
+                        let edited = edit_message(current_ai.msgstr_first(), editor)?;
+                        if let Some(edited_content) = edited {
+                            current_ai.msgstr = vec![edited_content];
+                        } else {
+                            // Editing failed or no changes - write original and break
+                            writeln!(output_file, "\n{}", orig)?;
+                            break;
+                        }
+                    }
+                    _ => {
+                        // Reject - write original message and break
+                        writeln!(output_file, "\n{}", orig)?;
+                        break;
+                    }
                 }
             }
         } else {
