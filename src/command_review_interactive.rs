@@ -20,32 +20,41 @@ pub fn command_review_interactive(
     let mut output_file: Option<&str> = None;
     let mut editor: Option<String> = None;
 
-    // Parse arguments
-    let mut args = cmdline.iter().peekable();
-    while let Some(&arg) = args.peek() {
-        if arg.starts_with('-') {
-            match *arg {
-                "-h" | "--help" => {
-                    help_review_interactive(ctx.out)?;
-                    return Ok(());
-                }
-                "--editor" => {
-                    args.next();
-                    if let Some(&editor_arg) = args.peek() {
-                        editor = Some(editor_arg.to_string());
-                    } else {
-                        bail!("--editor requires an argument");
-                    }
-                }
-                _ => bail!("Unknown option: {}", arg),
+    // Parse arguments using slice matching (same style as command_review_files_and_print.rs)
+    let mut args = cmdline;
+    loop {
+        match args[..] {
+            ["-h", ..] | ["--help", ..] => {
+                help_review_interactive(ctx.out)?;
+                return Ok(());
             }
-        } else {
-            match args.next() {
-                Some(&file) if original_file.is_none() => original_file = Some(file),
-                Some(&file) if ai_translated_file.is_none() => ai_translated_file = Some(file),
-                Some(&file) if output_file.is_none() => output_file = Some(file),
-                _ => bail!("Unexpected argument: {}", arg),
+            ["--editor", editor_arg, ref tail @ ..] => {
+                editor = Some(editor_arg.to_string());
+                args = tail;
             }
+            ["--", ..] => {
+                break;
+            }
+            [arg, ..] if arg.starts_with('-') => {
+                bail!(
+                    "Unknown option: \"{}\". Use --help for list of options.",
+                    arg
+                );
+            }
+            [file, ref tail @ ..] if original_file.is_none() => {
+                original_file = Some(file);
+                args = tail;
+            }
+            [file, ref tail @ ..] if ai_translated_file.is_none() => {
+                ai_translated_file = Some(file);
+                args = tail;
+            }
+            [file, ref tail @ ..] if output_file.is_none() => {
+                output_file = Some(file);
+                args = tail;
+            }
+            [] => break,
+            _ => bail!("Unexpected argument: {}", args[0]),
         }
     }
 
@@ -402,7 +411,8 @@ Already-approved messages (detected by msgid in output file) are skipped.
 
 OPTIONS:
 
-  -h | --help     Show this help message
+  -h | --help     Show this help message.
+  -e | --editor   Use given system editor for editing messages.
 "#
         )
     )?;
