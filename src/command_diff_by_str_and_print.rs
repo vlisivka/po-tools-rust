@@ -11,7 +11,7 @@ use std::collections::HashMap;
 fn diff_by_str_and_print(ctx: &mut IoContext, m1: &PoMessage, m2: &PoMessage) -> Result<()> {
     if m1.is_header() {
         if m2.is_header() {
-            if m1.msgstr_first() != m2.msgstr_first() {
+            if m1.msgstr_single() != m2.msgstr_single() {
                 writeln!(
                     ctx.out,
                     "{}{m1}{}{m2}",
@@ -30,7 +30,7 @@ fn diff_by_str_and_print(ctx: &mut IoContext, m1: &PoMessage, m2: &PoMessage) ->
 
     if !m1.is_plural() {
         if !m2.is_plural() {
-            if m1.msgstr_first() != m2.msgstr_first() {
+            if m1.msgstr_single() != m2.msgstr_single() {
                 writeln!(
                     ctx.out,
                     "{}{m1}{}{m2}",

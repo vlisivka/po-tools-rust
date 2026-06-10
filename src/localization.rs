@@ -56,7 +56,7 @@ pub fn load_translations(parser: &Parser) {
     if let Some(msgs) = messages {
         for msg in msgs {
             if !msg.is_header() && msg.is_translated() {
-                map.insert(msg.msgid.clone(), msg.msgstr_first().to_string());
+                map.insert(msg.msgid.clone(), msg.msgstr_single().to_string());
             }
         }
     }

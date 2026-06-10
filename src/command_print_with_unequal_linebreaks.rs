@@ -28,7 +28,7 @@ pub fn command_print_with_unequal_linebreaks(
                         writeln!(ctx.out, "{message}")?;
                     } else if !message.is_plural() {
                         let msgid_nl: u32 = message.msgid.matches('\n').map(|_| 1).sum();
-                        let msgstr_nl: u32 = message.msgstr_first().matches('\n').map(|_| 1).sum();
+                        let msgstr_nl: u32 = message.msgstr_single().matches('\n').map(|_| 1).sum();
                         if msgid_nl != msgstr_nl {
                             writeln!(ctx.out, "{message}")?;
                         }

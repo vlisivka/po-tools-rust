@@ -435,8 +435,8 @@ fn translate_benchmark_message(
     };
 
     // Compare human vs AI using normalized Levenshtein.
-    let human_msgstr = message.msgstr_first();
-    let ai_msgstr = ai_message.msgstr_first();
+    let human_msgstr = message.msgstr_single();
+    let ai_msgstr = ai_message.msgstr_single();
     let score = normalized_levenshtein(human_msgstr, ai_msgstr);
 
     // Print per-message score to stderr.

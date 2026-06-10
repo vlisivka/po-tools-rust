@@ -167,7 +167,7 @@ pub fn validate_message(message: &PoMessage) -> String {
     }
 
     if !message.is_plural() {
-        if message.msgstr_first().is_empty() {
+        if message.msgstr_single().is_empty() {
             return tr!("# Error: Message is not translated.\n").to_string();
         }
     } else {

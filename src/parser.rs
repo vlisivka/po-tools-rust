@@ -7,6 +7,54 @@ use anyhow::{Context, Result, bail};
 use std::io::{Read, Seek, SeekFrom};
 use unicode_bom::Bom;
 
+/// Represents the translation(s) of a `PoMessage`.
+///
+/// For regular (non-plural) messages: `Single(String)` with the single translation.
+/// For plural messages: `Plural(Vec<&str>)` with all plural forms.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub enum MsgstrView<'a> {
+    /// A single (non-plural) translation string.
+    Single(&'a str),
+    /// Multiple plural translation forms.
+    Plural(&'a [String]),
+}
+
+impl<'a> MsgstrView<'a> {
+    /// Returns true if this is a single (non-plural) translation.
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn is_single(&self) -> bool {
+        matches!(self, Self::Single(_))
+    }
+
+    /// Returns true if this is a plural translation.
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn is_plural(&self) -> bool {
+        matches!(self, Self::Plural(_))
+    }
+
+    /// For `Single`, returns the string. For `Plural`, returns the first form.
+    #[must_use]
+    #[allow(dead_code)]
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Single(s) => s,
+            Self::Plural(forms) => forms.first().map(|s| s.as_str()).unwrap_or(""),
+        }
+    }
+}
+
+impl std::fmt::Display for MsgstrView<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Single(s) => write!(f, "{s}"),
+            Self::Plural(forms) => write!(f, "{}", forms.join("\n")),
+        }
+    }
+}
+
 /// Parser for messages in Portable Object format by GNU gettext.
 pub struct Parser {
     /// Expected number of plural cases (e.g., from `nplurals=N` in the header).
@@ -71,9 +119,58 @@ impl PoMessage {
             && self.comments.iter().any(|c| c.starts_with("#, fuzzy"))
     }
 
-    /// Returns the first translated string (`msgstr[0]`), or an empty string if not present.
+    /// Returns the translation(s) of this message as a typed enum.
+    ///
+    /// For regular messages: returns `MsgstrView::Single(String)` with the single translation.
+    /// For plural messages: returns `MsgstrView::Plural(Vec<String>)` with all plural forms.
+    #[allow(dead_code)]
+    pub fn msgstr(&self) -> MsgstrView<'_> {
+        if self.is_plural() && self.msgstr.len() > 1 {
+            MsgstrView::Plural(&self.msgstr)
+        } else {
+            MsgstrView::Single(self.msgstr.first().map(|s| s.as_str()).unwrap_or(""))
+        }
+    }
+
+    /// Returns the translation string for a single (non-plural) message.
+    ///
+    /// For plural messages, returns the first element (`msgstr[0]`) or empty string.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use `msgstr()` or `msgstr_single()` instead for proper plural support"
+    )]
+    #[allow(deprecated)]
+    #[allow(dead_code)]
     pub fn msgstr_first(&self) -> &str {
         self.msgstr.first().map(|s| s.as_str()).unwrap_or("")
+    }
+
+    /// Returns the translation string for a single (non-plural) message.
+    ///
+    /// For plural messages, returns the first element (`msgstr[0]`) or empty string.
+    pub fn msgstr_single(&self) -> &str {
+        self.msgstr.first().map(|s| s.as_str()).unwrap_or("")
+    }
+
+    /// Returns the plural translation forms, if this is a plural message.
+    ///
+    /// Returns `None` for non-plural messages (regular or header).
+    #[allow(dead_code)]
+    pub fn msgstr_plural(&self) -> Option<&[String]> {
+        if self.is_plural() && !self.msgstr.is_empty() {
+            Some(&self.msgstr)
+        } else {
+            None
+        }
+    }
+
+    /// Returns all translation strings joined with `\n`.
+    ///
+    /// For regular messages: returns the single translation (no trailing newline).
+    /// For plural messages: returns all forms separated by newlines.
+    #[allow(dead_code)]
+    pub fn msgstr_all(&self) -> String {
+        self.msgstr.join("\n")
     }
 
     /// Creates a "key" version of the message by clearing its translations and comments.
@@ -158,7 +255,7 @@ impl std::fmt::Display for PoMessage {
 
         // Header
         if self.is_header() {
-            let msgstr = escape_string(self.msgstr_first());
+            let msgstr = escape_string(self.msgstr_single());
             return write!(f, "msgid \"\"\nmsgstr \"{msgstr}\"\n");
         }
 
@@ -189,7 +286,7 @@ impl std::fmt::Display for PoMessage {
             Ok(())
         } else {
             // Regular message
-            let msgstr = escape_string(self.msgstr_first());
+            let msgstr = escape_string(self.msgstr_single());
             write!(
                 f,
                 "\
@@ -712,7 +809,7 @@ mod tests {
 
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[1].msgid, "hello");
-        assert_eq!(messages[1].msgstr_first(), "world");
+        assert_eq!(messages[1].msgstr_single(), "world");
     }
 
     #[test]
@@ -978,7 +1075,7 @@ msgstr \"\"
         assert!(!msg.is_plural());
         assert!(!msg.has_context());
         assert!(msg.is_translated());
-        assert_eq!(msg.msgstr_first(), "переклад");
+        assert_eq!(msg.msgstr_single(), "переклад");
     }
 
     #[test]
@@ -991,7 +1088,7 @@ msgstr \"\"
         };
         assert!(msg.is_plural());
         assert!(msg.is_translated());
-        assert_eq!(msg.msgstr_first(), "однина");
+        assert_eq!(msg.msgstr_single(), "однина");
     }
 
     #[test]
@@ -1114,7 +1211,7 @@ msgstr \"\"
         let msg = parser_lax
             .parse_message_from_str(orig)
             .expect("lax parsing should work");
-        assert_eq!(msg.msgstr_first(), "bar");
+        assert_eq!(msg.msgstr_single(), "bar");
     }
 
     #[test]
@@ -1166,5 +1263,139 @@ msgstr "активний"
         assert_eq!(format!("{}", Keyword::Msgstr), "msgstr");
         assert_eq!(format!("{}", Keyword::MsgidPlural), "msgid_plural");
         assert_eq!(format!("{}", Keyword::MsgstrPlural(2)), "msgstr[N]");
+    }
+
+    // ---------------------------------------------------------------------------
+    // MsgstrView tests
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn test_msgstrview_single() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["world".to_string()],
+            ..Default::default()
+        };
+        let view = msg.msgstr();
+        assert!(view.is_single());
+        assert!(!view.is_plural());
+        assert_eq!(view.as_str(), "world");
+        assert_eq!(view.to_string(), "world");
+    }
+
+    #[test]
+    fn test_msgstrview_plural() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgid_plural: Some("hellos".to_string()),
+            msgstr: vec!["world".to_string(), "worlds".to_string()],
+            ..Default::default()
+        };
+        let view = msg.msgstr();
+        assert!(!view.is_single());
+        assert!(view.is_plural());
+        assert_eq!(view.as_str(), "world");
+        assert_eq!(view.to_string(), "world\nworlds");
+    }
+
+    #[test]
+    fn test_msgstrview_empty() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec![],
+            ..Default::default()
+        };
+        let view = msg.msgstr();
+        assert!(view.is_single());
+        assert_eq!(view.as_str(), "");
+    }
+
+    #[test]
+    fn test_msgstr_single_regular() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["world".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(msg.msgstr_single(), "world");
+    }
+
+    #[test]
+    fn test_msgstr_single_plural() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgid_plural: Some("hellos".to_string()),
+            msgstr: vec!["world".to_string(), "worlds".to_string()],
+            ..Default::default()
+        };
+        // For plural messages, msgstr_single returns the first form
+        assert_eq!(msg.msgstr_single(), "world");
+    }
+
+    #[test]
+    fn test_msgstr_plural_regular() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["world".to_string()],
+            ..Default::default()
+        };
+        assert!(msg.msgstr_plural().is_none());
+    }
+
+    #[test]
+    fn test_msgstr_plural_plural() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgid_plural: Some("hellos".to_string()),
+            msgstr: vec!["world".to_string(), "worlds".to_string()],
+            ..Default::default()
+        };
+        let plural = msg.msgstr_plural().unwrap();
+        assert_eq!(plural.len(), 2);
+        assert_eq!(plural[0], "world");
+        assert_eq!(plural[1], "worlds");
+    }
+
+    #[test]
+    fn test_msgstr_all_single() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["world".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(msg.msgstr_all(), "world");
+    }
+
+    #[test]
+    fn test_msgstr_all_plural() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgid_plural: Some("hellos".to_string()),
+            msgstr: vec!["world".to_string(), "worlds".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(msg.msgstr_all(), "world\nworlds");
+    }
+
+    #[test]
+    fn test_msgstr_all_empty() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec![],
+            ..Default::default()
+        };
+        assert_eq!(msg.msgstr_all(), "");
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_deprecated_msgstr_first_still_works() {
+        let msg = PoMessage {
+            msgid: "hello".to_string(),
+            msgstr: vec!["world".to_string()],
+            ..Default::default()
+        };
+        // Deprecated function should still return the first element
+        let _ = msg.msgstr_first();
     }
 }

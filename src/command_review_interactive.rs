@@ -197,7 +197,7 @@ fn review_interactive_sequential(
 
         // Check if AI translation exists and differs from original
         let needs_review = ai_message
-            .map(|ai| orig.msgstr_first() != ai.msgstr_first())
+            .map(|ai| orig.msgstr_single() != ai.msgstr_single())
             .unwrap_or(false);
 
         if needs_review {
@@ -205,7 +205,7 @@ fn review_interactive_sequential(
             let ai = ai_message.unwrap();
             let mut current_ai = (*ai).clone();
             loop {
-                let needs_review = orig.msgstr_first() != current_ai.msgstr_first();
+                let needs_review = orig.msgstr_single() != current_ai.msgstr_single();
 
                 if !needs_review {
                     // Edited content now matches original AI translation - accept,
@@ -236,8 +236,8 @@ fn review_interactive_sequential(
                 writeln!(ctx.out, "msgid  \"{}\"", orig.msgid)?;
 
                 // Display original and current proposed translation with highlighting
-                let orig_msgstr = orig.msgstr_first();
-                let ai_msgstr = current_ai.msgstr_first();
+                let orig_msgstr = orig.msgstr_single();
+                let ai_msgstr = current_ai.msgstr_single();
 
                 let highlighted = highlight_diff(orig_msgstr, ai_msgstr);
                 let lines: Vec<&str> = highlighted.lines().collect();
@@ -269,7 +269,7 @@ fn review_interactive_sequential(
                     }
                     "e" => {
                         // Edit the proposed translation in system editor
-                        let edited = edit_message(current_ai.msgstr_first(), editor)?;
+                        let edited = edit_message(current_ai.msgstr_single(), editor)?;
                         if let Some(edited_content) = edited {
                             current_ai.msgstr = vec![edited_content];
                         } else {

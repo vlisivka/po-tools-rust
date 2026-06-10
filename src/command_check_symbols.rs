@@ -83,7 +83,7 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
             Some(all_warnings)
         }
     } else {
-        check_strings(&message.msgid, message.msgstr_first())
+        check_strings(&message.msgid, message.msgstr_single())
     }
 }
 
