@@ -65,6 +65,8 @@ msgstr "world"
     let output = NamedTempFile::new().unwrap();
 
     cmd.arg("review-interactive")
+        .arg("--editor")
+        .arg("true")
         .arg(original.path())
         .arg(ai_translated.path())
         .arg(output.path())
@@ -109,8 +111,10 @@ msgstr "AI translation"
 
     let output = NamedTempFile::new().unwrap();
 
-    // Run command with empty stdin (should reject all messages)
+    // Run command with --editor true (no interactive prompt needed)
     cmd.arg("review-interactive")
+        .arg("--editor")
+        .arg("true")
         .arg(original.path())
         .arg(ai_translated.path())
         .arg(output.path())
