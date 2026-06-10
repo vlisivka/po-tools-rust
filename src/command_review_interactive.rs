@@ -369,7 +369,7 @@ fn highlight_diff(original: &str, translation: &str) -> String {
                 orig_line.push_str(&format!("\x1b[41m{}\x1b[0m", ch));
             }
             OpType::Add => {
-                trans_line.push_str(&format!("\x1b[42m{}\x1b[0m", ch));
+                trans_line.push_str(&format!("\x1b[44m{}\x1b[0m", ch));
             }
         }
     }
@@ -470,7 +470,7 @@ mod tests {
     fn test_highlight_full_diff() {
         let result = highlight_diff("a", "b");
         assert!(result.contains("\x1b[41m")); // red for deletion (original)
-        assert!(result.contains("\x1b[42m")); // green for addition (translation)
+        assert!(result.contains("\x1b[44m")); // blue for addition (translation)
         assert!(result.contains('\n')); // should have two lines
     }
 
