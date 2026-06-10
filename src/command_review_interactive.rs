@@ -197,7 +197,7 @@ fn review_interactive_sequential(
 
         // Check if AI translation exists and differs from original
         let needs_review = ai_message
-            .map(|ai| orig.msgstr_single() != ai.msgstr_single())
+            .map(|ai| orig.msgstr() != ai.msgstr())
             .unwrap_or(false);
 
         if needs_review {
@@ -205,7 +205,7 @@ fn review_interactive_sequential(
             let ai = ai_message.unwrap();
             let mut current_ai = (*ai).clone();
             loop {
-                let needs_review = orig.msgstr_single() != current_ai.msgstr_single();
+                let needs_review = orig.msgstr() != current_ai.msgstr();
 
                 if !needs_review {
                     // Edited content now matches original AI translation - accept,
@@ -554,5 +554,107 @@ mod tests {
             "Edited content must have trailing newline preserved"
         );
         assert_eq!(edited, "Hello World\n");
+    }
+
+    // ---------------------------------------------------------------------------
+    // Plural message handling tests
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn test_plural_message_needs_review_different_second_form() {
+        // Test that plural messages are detected as needing review even when
+        // only the second (or later) msgstr form differs from original.
+        let parser = Parser::new(None);
+
+        // Original: singular form "item"
+        let orig = parser
+            .parse_message_from_str(
+                "msgid \"%d item\"\n\
+                 msgid_plural \"%d items\"\n\
+                 msgstr[0] \"%d елемент\"\n\
+                 msgstr[1] \"%d елементи\"\n",
+            )
+            .unwrap();
+
+        // AI: first form matches, second form differs
+        let ai = parser
+            .parse_message_from_str(
+                "msgid \"%d item\"\n\
+                 msgid_plural \"%d items\"\n\
+                 msgstr[0] \"%d елемент\"\n\
+                 msgstr[1] \"%d новых елементи\"\n",
+            )
+            .unwrap();
+
+        // The comparison should detect that the AI translation differs from original
+        // because msgstr[1] is different, even though msgstr[0] matches.
+        let needs_review = orig.msgstr() != ai.msgstr();
+        assert!(
+            needs_review,
+            "Plural message with differing second form should need review"
+        );
+    }
+
+    #[test]
+    fn test_plural_message_no_review_when_all_forms_match() {
+        // Test that plural messages are NOT flagged for review when all forms match.
+        let parser = Parser::new(None);
+
+        let orig = parser
+            .parse_message_from_str(
+                "msgid \"%d item\"\n\
+                 msgid_plural \"%d items\"\n\
+                 msgstr[0] \"%d елемент\"\n\
+                 msgstr[1] \"%d елементи\"\n",
+            )
+            .unwrap();
+
+        let ai = parser
+            .parse_message_from_str(
+                "msgid \"%d item\"\n\
+                 msgid_plural \"%d items\"\n\
+                 msgstr[0] \"%d елемент\"\n\
+                 msgstr[1] \"%d елементи\"\n",
+            )
+            .unwrap();
+
+        let needs_review = orig.msgstr() != ai.msgstr();
+        assert!(
+            !needs_review,
+            "Plural message with all matching forms should NOT need review"
+        );
+    }
+
+    #[test]
+    fn test_plural_message_needs_review_different_third_form() {
+        // Test that plural messages with 3+ forms are properly compared.
+        let parser = Parser::new(None);
+
+        let orig = parser
+            .parse_message_from_str(
+                "msgid \"%d item\"\n\
+                 msgid_plural \"%d items\"\n\
+                 msgstr[0] \"%d елемент\"\n\
+                 msgstr[1] \"%d елементи\"\n\
+                 msgstr[2] \"%d елементів\"\n",
+            )
+            .unwrap();
+
+        // AI: first two forms match, third form differs
+        let ai = parser
+            .parse_message_from_str(
+                "msgid \"%d item\"\n\
+                 msgid_plural \"%d items\"\n\
+                 msgstr[0] \"%d елемент\"\n\
+                 msgstr[1] \"%d елементи\"\n\
+                 msgstr[2] \"%d нових елементів\"\n",
+            )
+            .unwrap();
+
+        let needs_review = orig.msgstr() != ai.msgstr();
+        assert!(
+            needs_review,
+            "Plural message with differing third form should need review"
+        );
     }
 }

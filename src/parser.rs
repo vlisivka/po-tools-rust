@@ -20,6 +20,20 @@ pub enum MsgstrView<'a> {
     Plural(&'a [String]),
 }
 
+impl<'a> PartialEq for MsgstrView<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Single(a), Self::Single(b)) => a == b,
+            (Self::Plural(a), Self::Plural(b)) => {
+                a.len() == b.len() && std::iter::zip(a.iter(), b.iter()).all(|(x, y)| x == y)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl<'a> Eq for MsgstrView<'a> {}
+
 impl<'a> MsgstrView<'a> {
     /// Returns true if this is a single (non-plural) translation.
     #[must_use]
