@@ -90,7 +90,7 @@ pub fn check_symbols(message: &PoMessage) -> Option<String> {
 /// Implementation of the `check-symbols` command.
 pub fn command_check_symbols(parser: &Parser, cmdline: &[&str], ctx: &mut IoContext) -> Result<()> {
     match cmdline {
-        ["-h", ..] | ["--help", ..] => help(ctx.out),
+        ["-h", ..] | ["--help", ..] => help(ctx.out)?,
 
         files if !files.is_empty() => {
             for file in files {
@@ -112,15 +112,16 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str], ctx: &mut IoCont
     Ok(())
 }
 
-fn help(out: &mut dyn Write) {
-    let _ = writeln!(
+fn help(out: &mut dyn Write) -> Result<()> {
+    writeln!(
         out,
         "{}",
         tr!(r#"Usage: po-tools check-symbols FILE[...]
 
 Remove all alphanumeric characters, whitespace, and commas, then compare resulting strings.
 "#)
-    );
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@
 
 use crate::parser::{Parser, PoMessage};
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::OnceLock;
 
 static TRANSLATIONS: OnceLock<HashMap<String, String>> = OnceLock::new();
@@ -68,12 +69,20 @@ pub fn load_translations(parser: &Parser) {
 /// Translates a string using the loaded translations.
 ///
 /// If no translation is found, returns the original string.
+/// If `PO_TOOLS_TRANSLATION_WARNINGS=1` environment variable is set,
+/// emits a warning to stderr for each missing translation.
 pub fn translate(msgid: &str) -> &str {
-    TRANSLATIONS
+    let found = TRANSLATIONS
         .get()
         .and_then(|map| map.get(msgid))
-        .map(|s| s.as_str())
-        .unwrap_or(msgid)
+        .map(|s| s.as_str());
+
+    if found.is_none() && std::env::var("PO_TOOLS_TRANSLATION_WARNINGS").as_deref() == Ok("1") {
+        let _ = std::io::stderr()
+            .write_all(format!("warning: translation missing for \"{msgid}\"\n").as_bytes());
+    }
+
+    found.unwrap_or(msgid)
 }
 
 /// Macro for translating strings at runtime.
@@ -99,5 +108,18 @@ mod tests {
     #[test]
     fn test_tr_macro() {
         assert_eq!(tr!("test message"), "test message");
+    }
+
+    #[test]
+    #[ignore = "requires capturing stderr output"]
+    fn test_translate_warning_with_env_var() {
+        // Set the env var and verify that translate still returns the original msgid
+        unsafe {
+            std::env::set_var("PO_TOOLS_TRANSLATION_WARNINGS", "1");
+        }
+        assert_eq!(translate("non-existent-msgid-2"), "non-existent-msgid-2");
+        unsafe {
+            std::env::remove_var("PO_TOOLS_TRANSLATION_WARNINGS");
+        }
     }
 }

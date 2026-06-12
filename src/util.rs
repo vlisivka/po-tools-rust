@@ -24,7 +24,7 @@ pub struct AiBackend {
 
 impl AiBackend {
     /// Create a new backend with a specific command and arguments.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn new(command: String, args: Vec<String>) -> Self {
         Self {
             command,
@@ -35,7 +35,11 @@ impl AiBackend {
 
     /// Create a backend from a full command line string (e.g., from --ai-command).
     pub fn from_command_line(cmd: &str) -> Self {
-        let parts: Vec<String> = cmd.split_whitespace().map(|s| s.to_string()).collect();
+        let parts: Vec<String> = shell_words::split(cmd).unwrap_or_else(|e| {
+            // Fall back to naive split if shell_words fails
+            eprintln!("warning: failed to parse command line: {e}");
+            cmd.split_whitespace().map(|s| s.to_string()).collect()
+        });
         if parts.is_empty() {
             // Default to aichat if empty, though this shouldn't normally happen if parsed correctly
             return Self::with_aichat_defaults("ollama:translategemma:12b", "translate-po", None);
@@ -67,7 +71,7 @@ impl AiBackend {
     }
 
     /// Create a mock backend for testing.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn mock(response: &str) -> Self {
         Self {
             command: String::new(),
@@ -78,7 +82,7 @@ impl AiBackend {
 
     /// Append an additional response to the queue. When execute() is called,
     /// responses are consumed in FIFO order (last-pushed first-consumed).
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn with_alternate(mut self, response: &str) -> Self {
         self.mock_responses.insert(0, response.to_string());
         self
@@ -109,9 +113,10 @@ pub fn pipe_to_command(command: &str, args: &[&str], text: &str) -> Result<Strin
         .stderr(Stdio::piped())
         .spawn()?;
 
-    let mut stdin = child.stdin.take().expect(
-        "Failed to open stdin of child process; check if Command was spawned with Stdio::piped()",
-    );
+    let mut stdin = child
+        .stdin
+        .take()
+        .context("stdin was not properly configured for piped child process")?;
     let text = text.to_string();
 
     let output = std::thread::scope(|s| {
@@ -259,5 +264,16 @@ mod tests {
         assert_eq!(backend.command, "aichat");
         assert!(backend.args.contains(&"--rag".to_string()));
         assert!(backend.args.contains(&"context".to_string()));
+    }
+
+    #[test]
+    fn test_ai_backend_from_command_line_with_quoted_args() {
+        // Quoted arguments should be parsed as a single argument
+        let backend = AiBackend::from_command_line("my-tool --arg 'hello world'");
+        assert_eq!(backend.command, "my-tool");
+        assert_eq!(
+            backend.args,
+            vec!["--arg".to_string(), "hello world".to_string()]
+        );
     }
 }
