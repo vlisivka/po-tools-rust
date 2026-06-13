@@ -82,6 +82,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -103,6 +104,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -125,6 +127,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -142,6 +145,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -157,6 +161,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

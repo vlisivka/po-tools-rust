@@ -21,7 +21,7 @@ pub fn command_print_with_context(
 
                 for message in messages.iter() {
                     if message.has_context() {
-                        writeln!(ctx.out, "{message}")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     }
                 }
             }
@@ -46,6 +46,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -75,6 +76,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -97,6 +99,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

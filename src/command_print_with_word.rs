@@ -28,11 +28,11 @@ pub fn command_print_with_word(
                     }
 
                     if message.msgid.to_lowercase().contains(&keyword) {
-                        writeln!(ctx.out, "{message}")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     } else if let Some(ref msgid_plural) = message.msgid_plural
                         && msgid_plural.to_lowercase().contains(&keyword)
                     {
-                        writeln!(ctx.out, "{message}")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     }
                 }
             }
@@ -57,6 +57,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -86,6 +87,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -114,6 +116,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -136,6 +139,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

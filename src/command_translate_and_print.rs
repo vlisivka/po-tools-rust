@@ -249,7 +249,7 @@ fn translate_and_print(
 
         if message.is_header() {
             // Headers are always passed through unchanged.
-            writeln!(ctx.out, "{message}")?;
+            ctx.writer.write_message(message, ctx.out)?;
             let orig_str = format!("{message}\n");
             let line_count = orig_str.lines().count();
             orig_line_no += line_count;
@@ -346,7 +346,7 @@ fn translate_and_print(
             bench_line_no += bench_lines.len();
         } else if message.is_translated() && !message.is_fuzzy() && !should_force {
             // Already translated in normal mode — pass through.
-            writeln!(ctx.out, "{message}")?;
+            ctx.writer.write_message(message, ctx.out)?;
         } else {
             translate_single_message(ctx, config, message)?;
         }
@@ -737,6 +737,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -774,6 +775,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -812,6 +814,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -853,6 +856,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -893,6 +897,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -931,6 +936,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -969,6 +975,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -1009,6 +1016,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -1047,6 +1055,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -1079,6 +1088,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -1101,6 +1111,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -1137,6 +1148,7 @@ mod tests {
             let mut ctx = IoContext {
                 out: &mut out,
                 err: &mut err,
+                writer: crate::po_file::PoFileWriter::default(),
             };
             let config = TranslateConfig {
                 backend: AiBackend::mock("msgid \"...\"\nmsgstr \"forced_translation\""),
@@ -1181,6 +1193,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let config_big_endian = TranslateConfig {
             backend: AiBackend::mock("msgid \"...\"\nmsgstr \"forced_translation\""),
@@ -1214,6 +1227,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -1260,6 +1274,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
 
         // AI returns a fully-translated plural message with 3 forms.
@@ -1305,6 +1320,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
 
         let config = TranslateConfig {
@@ -1347,6 +1363,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
 
         // AI returns a fully-translated plural message.
@@ -1392,6 +1409,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
 
         // We don't care about the response content; we only check debug stderr.
@@ -1440,6 +1458,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
 
         // AI only returned 2 forms instead of the expected 3.
@@ -1497,6 +1516,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
         // AI returns "привіт світ" (different from human "привіт, світ")
@@ -1562,6 +1582,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
         // AI returns the same string as human
@@ -1605,6 +1626,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
         let config = TranslateConfig {
@@ -1644,6 +1666,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
         let config = TranslateConfig {
@@ -1685,6 +1708,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
         let config = TranslateConfig {
@@ -1722,6 +1746,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         // AI returns different plural forms
         let ai_response = "msgid \"%d new patch,\"\nmsgid_plural \"%d new patches,\"\nmsgstr[0] \"%d нова латка,\"\nmsgstr[1] \"%d нові латки,\"";
@@ -1782,6 +1807,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         // Provide two mock responses — with_alternate inserts at 0, execute() pops from end.
         let config = TranslateConfig {

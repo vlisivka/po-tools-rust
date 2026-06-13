@@ -17,7 +17,7 @@ pub fn command_print_plural(parser: &Parser, cmdline: &[&str], ctx: &mut IoConte
 
                 for message in messages.iter() {
                     if message.is_plural() {
-                        writeln!(ctx.out, "{message}")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     }
                 }
             }
@@ -42,6 +42,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -71,6 +72,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -93,6 +95,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

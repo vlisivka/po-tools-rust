@@ -25,19 +25,19 @@ pub fn command_print_with_unequal_linebreaks(
 
                 for message in messages.iter() {
                     if message.is_header() {
-                        writeln!(ctx.out, "{message}")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     } else if !message.is_plural() {
                         let msgid_nl: u32 = message.msgid.matches('\n').map(|_| 1).sum();
                         let msgstr_nl: u32 = message.msgstr_single().matches('\n').map(|_| 1).sum();
                         if msgid_nl != msgstr_nl {
-                            writeln!(ctx.out, "{message}")?;
+                            ctx.writer.write_message(message, ctx.out)?;
                         }
                     } else {
                         let msgid_nl: u32 = message.msgid.matches('\n').map(|_| 1).sum();
                         for msgstr in &message.msgstr {
                             let msgstr_nl: u32 = msgstr.matches('\n').map(|_| 1).sum();
                             if msgid_nl != msgstr_nl {
-                                writeln!(ctx.out, "{message}")?;
+                                ctx.writer.write_message(message, ctx.out)?;
                                 break; // no need to print multiple times
                             }
                         }
@@ -65,6 +65,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -94,6 +95,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -116,6 +118,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

@@ -29,7 +29,7 @@ pub fn command_print_with_wordstr(
 
                     for msgstr in &message.msgstr {
                         if msgstr.to_lowercase().contains(&keyword) {
-                            writeln!(ctx.out, "{message}")?;
+                            ctx.writer.write_message(message, ctx.out)?;
                             break;
                         }
                     }
@@ -56,6 +56,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -85,6 +86,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -107,6 +109,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

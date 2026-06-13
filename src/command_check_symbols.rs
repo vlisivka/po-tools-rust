@@ -98,9 +98,11 @@ pub fn command_check_symbols(parser: &Parser, cmdline: &[&str], ctx: &mut IoCont
 
                 for message in messages.iter() {
                     if message.is_header() {
-                        writeln!(ctx.out, "{message}")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     } else if let Some(errors) = check_symbols(message) {
-                        writeln!(ctx.out, "{errors}\n#, fuzzy\n{message}")?;
+                        write!(ctx.out, "{}", errors)?;
+                        writeln!(ctx.out, "#, fuzzy")?;
+                        ctx.writer.write_message(message, ctx.out)?;
                     }
                 }
             }
@@ -138,6 +140,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -159,6 +162,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -181,6 +185,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -198,6 +203,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 

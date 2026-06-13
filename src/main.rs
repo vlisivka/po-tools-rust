@@ -3,6 +3,9 @@ use anyhow::{Result, bail};
 mod parser;
 use crate::parser::Parser;
 
+mod po_file;
+use crate::po_file::{PoFileConfig, PoFileWriter};
+
 #[macro_use]
 mod localization;
 
@@ -87,9 +90,11 @@ fn main() -> Result<()> {
 
     let mut stdout = std::io::stdout();
     let mut stderr = std::io::stderr();
+    let writer = PoFileWriter::new(PoFileConfig { multiline: true });
     let mut ctx = util::IoContext {
         out: &mut stdout,
         err: &mut stderr,
+        writer,
     };
 
     // Parse options

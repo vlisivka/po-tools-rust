@@ -12,6 +12,18 @@ use std::io::Write;
 pub struct IoContext<'a> {
     pub out: &'a mut dyn Write,
     pub err: &'a mut dyn Write,
+    /// Shared PO writer configured at startup.
+    pub writer: crate::po_file::PoFileWriter,
+}
+
+/// Creates an IoContext with a default PoFileWriter (multiline=true).
+#[allow(dead_code)]
+pub fn test_io_context<'a>(out: &'a mut dyn Write, err: &'a mut dyn Write) -> IoContext<'a> {
+    IoContext {
+        out,
+        err,
+        writer: crate::po_file::PoFileWriter::default(),
+    }
 }
 
 /// Backend for calling an AI model.

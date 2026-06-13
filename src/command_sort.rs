@@ -24,7 +24,7 @@ pub fn command_sort_and_print(
                 messages.sort();
 
                 for m in messages {
-                    writeln!(ctx.out, "{m}")?;
+                    ctx.writer.write_message(&m, ctx.out)?;
                 }
             }
         }
@@ -48,6 +48,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
 
         let parser = Parser::new(None);
@@ -87,6 +88,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
@@ -109,6 +111,7 @@ mod tests {
         let mut ctx = IoContext {
             out: &mut out,
             err: &mut err,
+            writer: crate::po_file::PoFileWriter::default(),
         };
         let parser = Parser::new(None);
 
