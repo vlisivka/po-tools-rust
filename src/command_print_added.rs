@@ -3,10 +3,10 @@
 //! `added` finds messages in the second file not present in the first.
 //! `removed` finds messages in the first file not present in the second.
 
-use crate::parser::{Parser, PoMessage};
+use crate::message_set::keyed_map;
+use crate::parser::Parser;
 use crate::util::IoContext;
 use anyhow::{Result, bail};
-use std::collections::HashMap;
 
 /// Implementation of the `added` command.
 pub fn command_print_added(parser: &Parser, cmdline: &[&str], ctx: &mut IoContext) -> Result<()> {
@@ -20,11 +20,7 @@ pub fn command_print_added(parser: &Parser, cmdline: &[&str], ctx: &mut IoContex
         [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
             let messages1 = parser.parse_messages_from_file(orig_file)?;
 
-            let mut map: HashMap<PoMessage, &PoMessage> = HashMap::with_capacity(messages1.len());
-
-            for m in messages1.iter() {
-                map.insert(m.to_key(), m);
-            }
+            let map = keyed_map(&messages1);
 
             for file_to_diff in files_to_diff {
                 writeln!(ctx.out, "{}: {file_to_diff}\n", tr!("# File"))?;

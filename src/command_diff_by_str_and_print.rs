@@ -3,10 +3,10 @@
 //! Unlike standard `diff` which compares keys (`msgid`), this command
 //! focuses on how the translations have changed for the same keys.
 
+use crate::message_set::keyed_map;
 use crate::parser::{Parser, PoMessage};
 use crate::util::IoContext;
 use anyhow::{Result, bail};
-use std::collections::HashMap;
 
 fn diff_by_str_and_print(ctx: &mut IoContext, m1: &PoMessage, m2: &PoMessage) -> Result<()> {
     if m1.is_header() {
@@ -98,13 +98,8 @@ pub fn command_diff_by_str_and_print(
         [orig_file, files_to_diff @ ..] if !files_to_diff.is_empty() => {
             let orig_messages = parser.parse_messages_from_file(orig_file)?;
 
-            // Keyed by identity (msgctxt+msgid+msgid_plural). The value is a reference to the full message.
-            let mut map: HashMap<PoMessage, &PoMessage> =
-                HashMap::with_capacity(orig_messages.len());
-
-            for m in orig_messages.iter() {
-                map.insert(m.to_key(), m);
-            }
+            // Build lookup map keyed by identity (msgctxt+msgid+msgid_plural).
+            let map = keyed_map(&orig_messages);
 
             for file_to_diff in files_to_diff {
                 writeln!(ctx.out, "{}: {file_to_diff}\n", tr!("# File"))?;

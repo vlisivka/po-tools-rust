@@ -3,6 +3,8 @@ use anyhow::{Result, bail};
 mod parser;
 use crate::parser::Parser;
 
+mod message_set;
+
 mod po_file;
 use crate::po_file::{PoFileConfig, PoFileWriter};
 
